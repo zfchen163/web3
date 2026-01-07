@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试页面</title>
+</head>
+<body>
+    <h1>测试页面</h1>
+    <p>如果您能看到这个页面，说明服务器正常运行。</p>
+    <p>请打开浏览器开发者工具（F12），查看 Console 标签页是否有错误。</p>
+    <script>
+        console.log('测试页面加载成功');
+        fetch('http://localhost:3000/src/main.tsx')
+            .then(r => r.text())
+            .then(text => console.log('main.tsx 加载成功，长度:', text.length))
+            .catch(err => console.error('加载 main.tsx 失败:', err));
+    </script>
+</body>
+</html>
+

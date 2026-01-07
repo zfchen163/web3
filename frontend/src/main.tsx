@@ -13,6 +13,7 @@
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import 'antd/dist/reset.css'  // Ant Design 样式
 import App from './AppV3.tsx'  // 使用 V3 版本
 import './index.css'
 

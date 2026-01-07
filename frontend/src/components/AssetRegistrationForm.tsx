@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import ImageUpload from './ImageUpload';
+import AreaSelector from './AreaSelector';
 
 // API 地址
 const API_URL = 'http://localhost:8080';
@@ -33,9 +34,7 @@ interface FormData {
   color: string;                   // 颜色
   condition: 'new' | 'used' | 'refurbished';  // 新旧程度
   productionDate: string;          // 生产日期
-  productionLocation: string;      // 生产地
-  productionProvince: string;      // 生产省份
-  productionCity: string;          // 生产城市
+  productionLocation: string;      // 生产地（完整地址）
   
   // NFC/物理标识
   nfcTagId: string;               // NFC 标签 ID
@@ -47,23 +46,6 @@ interface FormData {
   listImmediately: boolean;        // 是否立即上架
   price: string;                   // 价格（ETH）
 }
-
-// 省市区数据（简化版）
-const regionData: Record<string, string[]> = {
-  '北京市': ['东城区', '西城区', '朝阳区', '海淀区', '丰台区', '石景山区'],
-  '上海市': ['黄浦区', '徐汇区', '长宁区', '静安区', '普陀区', '虹口区'],
-  '广东省': ['广州市', '深圳市', '珠海市', '东莞市', '佛山市', '中山市'],
-  '浙江省': ['杭州市', '宁波市', '温州市', '绍兴市', '台州市', '金华市'],
-  '江苏省': ['南京市', '苏州市', '无锡市', '常州市', '南通市', '徐州市'],
-  '福建省': ['福州市', '厦门市', '泉州市', '漳州市', '莆田市', '宁德市'],
-  '山东省': ['济南市', '青岛市', '烟台市', '潍坊市', '临沂市', '威海市'],
-  '河北省': ['石家庄市', '唐山市', '保定市', '邯郸市', '秦皇岛市', '廊坊市'],
-  '四川省': ['成都市', '绵阳市', '德阳市', '南充市', '宜宾市', '自贡市'],
-  '湖北省': ['武汉市', '宜昌市', '襄阳市', '荆州市', '黄石市', '十堰市'],
-  '湖南省': ['长沙市', '株洲市', '湘潭市', '衡阳市', '岳阳市', '常德市'],
-  '河南省': ['郑州市', '洛阳市', '开封市', '南阳市', '安阳市', '新乡市'],
-  '其他': ['其他城市']
-};
 
 interface AssetRegistrationFormProps {
   account: string;                 // 用户地址
@@ -94,8 +76,6 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
     condition: 'new',
     productionDate: '',
     productionLocation: '',
-    productionProvince: '',
-    productionCity: '',
     nfcTagId: '',
     certificateUrl: '',
     listImmediately: false,
@@ -108,7 +88,6 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [txHash, setTxHash] = useState('');
   const [txStatus, setTxStatus] = useState('');
-  const [availableCities, setAvailableCities] = useState<string[]>([]);
 
   // ==================== 表单验证 ====================
   
@@ -290,8 +269,6 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
       condition: 'new',
       productionDate: '',
       productionLocation: '',
-      productionProvince: '',
-      productionCity: '',
       nfcTagId: '',
       certificateUrl: '',
       listImmediately: false,
@@ -302,7 +279,6 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
     setTxHash('');
     setTxStatus('');
     setUploadProgress(0);
-    setAvailableCities([]);
   };
 
   /**
@@ -595,44 +571,14 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
           
           <div className="form-group">
             <label>生产地</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <select
-                value={formData.productionProvince}
-                onChange={(e) => {
-                  const province = e.target.value;
-                  updateField('productionProvince', province);
-                  updateField('productionCity', '');
-                  setAvailableCities(regionData[province] || []);
-                  if (province) {
-                    updateField('productionLocation', province);
-                  }
-                }}
-                style={{ flex: '1' }}
-              >
-                <option value="">选择省份</option>
-                {Object.keys(regionData).map(province => (
-                  <option key={province} value={province}>{province}</option>
-                ))}
-              </select>
-              
-              <select
-                value={formData.productionCity}
-                onChange={(e) => {
-                  const city = e.target.value;
-                  updateField('productionCity', city);
-                  if (formData.productionProvince && city) {
-                    updateField('productionLocation', `${formData.productionProvince} ${city}`);
-                  }
-                }}
-                disabled={!formData.productionProvince}
-                style={{ flex: '1' }}
-              >
-                <option value="">选择城市</option>
-                {availableCities.map(city => (
-                  <option key={city} value={city}>{city}</option>
-                ))}
-              </select>
-            </div>
+            <AreaSelector
+              value={formData.productionLocation}
+              onChange={(value) => updateField('productionLocation', value)}
+              placeholder="请选择省/市/区"
+            />
+            <span className="help-text">
+              💡 支持搜索，选择省市区后自动组合完整地址
+            </span>
           </div>
         </div>
       </div>
