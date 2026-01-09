@@ -21,7 +21,9 @@ const AssetRegistryABI = `[
 		"inputs": [
 			{"indexed": true, "name": "assetId", "type": "uint256"},
 			{"indexed": true, "name": "owner", "type": "address"},
-			{"indexed": false, "name": "name", "type": "string"}
+			{"indexed": true, "name": "brand", "type": "address"},
+			{"indexed": false, "name": "name", "type": "string"},
+			{"indexed": false, "name": "serialNumber", "type": "string"}
 		],
 		"name": "AssetRegistered",
 		"type": "event"
@@ -34,6 +36,24 @@ const AssetRegistryABI = `[
 			{"indexed": true, "name": "to", "type": "address"}
 		],
 		"name": "AssetTransferred",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{"indexed": true, "name": "assetId", "type": "uint256"},
+			{"indexed": true, "name": "seller", "type": "address"},
+			{"indexed": false, "name": "price", "type": "uint256"}
+		],
+		"name": "AssetListed",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{"indexed": true, "name": "assetId", "type": "uint256"}
+		],
+		"name": "AssetUnlisted",
 		"type": "event"
 	}
 ]`
@@ -164,11 +184,13 @@ func (c *Client) WatchEvents(ctx context.Context, fromBlock uint64, eventChan ch
 
 // AssetRegisteredEvent 事件结构
 type AssetRegisteredEvent struct {
-	AssetId     uint64
-	Owner       common.Address
-	Name        string
-	BlockNumber uint64
-	TxHash      string
+	AssetId      uint64
+	Owner        common.Address
+	Brand        common.Address
+	Name         string
+	SerialNumber string
+	BlockNumber  uint64
+	TxHash       string
 }
 
 // AssetTransferredEvent 资产转移事件结构
@@ -176,6 +198,22 @@ type AssetTransferredEvent struct {
 	AssetId     uint64
 	From        common.Address
 	To          common.Address
+	BlockNumber uint64
+	TxHash      string
+}
+
+// AssetListedEvent 资产上架事件结构
+type AssetListedEvent struct {
+	AssetId     uint64
+	Seller      common.Address
+	Price       *big.Int
+	BlockNumber uint64
+	TxHash      string
+}
+
+// AssetUnlistedEvent 资产下架事件结构
+type AssetUnlistedEvent struct {
+	AssetId     uint64
 	BlockNumber uint64
 	TxHash      string
 }

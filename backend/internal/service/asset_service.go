@@ -3,6 +3,7 @@ package service
 import (
 	"chain-vault-backend/internal/model"
 	"chain-vault-backend/internal/repository"
+	"encoding/json"
 	"time"
 )
 
@@ -42,6 +43,44 @@ func (s *AssetService) CreateAssetV3(assetID uint64, owner, brand, name, serialN
 		BlockNum:     blockNum,
 	}
 	return s.repo.Create(asset)
+}
+
+// CreateAssetV3WithImages 创建资产并存储 base64 图片数组
+func (s *AssetService) CreateAssetV3WithImages(assetID uint64, owner, brand, name, serialNumber, metadataURI, txHash string, blockNum uint64, status model.VerificationStatus, imageBase64Array []string) error {
+	asset := &model.Asset{
+		ID:           assetID,
+		Owner:        owner,
+		Brand:        brand,
+		Name:         name,
+		SerialNumber: serialNumber,
+		MetadataURI:  metadataURI,
+		Status:       status,
+		CreatedAt:    time.Now(),
+		TxHash:       txHash,
+		BlockNum:     blockNum,
+	}
+
+	// 将 base64 图片数组转为 JSON 存储
+	if len(imageBase64Array) > 0 {
+		imagesJSON, err := json.Marshal(imageBase64Array)
+		if err == nil {
+			asset.Images = string(imagesJSON)
+		}
+	}
+
+	return s.repo.Create(asset)
+}
+
+// UpdateAssetImages 更新资产的图片
+func (s *AssetService) UpdateAssetImages(assetID uint64, imageBase64Array []string) error {
+	if len(imageBase64Array) > 0 {
+		imagesJSON, err := json.Marshal(imageBase64Array)
+		if err != nil {
+			return err
+		}
+		return s.repo.UpdateImages(assetID, string(imagesJSON))
+	}
+	return s.repo.UpdateImages(assetID, "")
 }
 
 func (s *AssetService) GetAsset(id uint64) (*model.Asset, error) {
@@ -106,4 +145,14 @@ func (s *AssetService) UpdateListingStatus(assetID uint64, isListed bool, price 
 
 func (s *AssetService) UpdateVerificationStatus(assetID uint64, status model.VerificationStatus, brand string) error {
 	return s.repo.UpdateVerificationStatus(assetID, status, brand)
+}
+
+// ListAsset 上架资产
+func (s *AssetService) ListAsset(assetID uint64, priceWei string) error {
+	return s.repo.UpdateListingStatus(assetID, true, priceWei)
+}
+
+// UnlistAsset 下架资产
+func (s *AssetService) UnlistAsset(assetID uint64) error {
+	return s.repo.UpdateListingStatus(assetID, false, "0")
 }

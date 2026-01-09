@@ -23,8 +23,13 @@ func Connect(databaseURL string) error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// 自动迁移
-	if err := DB.AutoMigrate(&model.Asset{}); err != nil {
+	// 自动迁移（包括新添加的 Images 字段）
+	if err := DB.AutoMigrate(
+		&model.Asset{},
+		&model.Brand{},
+		&model.Order{},
+		&model.AssetOwnerHistory{},
+	); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 

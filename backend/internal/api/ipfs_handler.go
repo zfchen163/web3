@@ -1,6 +1,9 @@
 package api
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -21,9 +24,10 @@ func getIPFSService() *service.IPFSService {
 	return ipfsService
 }
 
-// UploadImage 上传图片到 IPFS
+// UploadImage 上传图片并转为 base64
+// 注意：当前实现为 base64 存储，保留 IPFS 相关代码以便日后切换
 func UploadImage(c *gin.Context) {
-	file, header, err := c.Request.FormFile("image")
+	file, _, err := c.Request.FormFile("image")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Failed to get image file",
@@ -41,23 +45,23 @@ func UploadImage(c *gin.Context) {
 		return
 	}
 
-	// 上传到 IPFS
-	hash, err := getIPFSService().UploadFile(fileData, header.Filename)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to upload to IPFS: " + err.Error(),
-		})
-		return
-	}
+	// 转为 base64
+	base64Str := base64.StdEncoding.EncodeToString(fileData)
+	
+	// 根据文件类型添加 data URI 前缀
+	mimeType := http.DetectContentType(fileData)
+	dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Str)
 
 	c.JSON(http.StatusOK, gin.H{
-		"hash": hash,
-		"uri":  "ipfs://" + hash,
-		"url":  "https://ipfs.io/ipfs/" + hash,
+		"base64": dataURI,
+		"hash":   "", // 保留字段，兼容前端
+		"uri":    "", // 保留字段，兼容前端
+		"url":    "", // 保留字段，兼容前端
 	})
 }
 
-// UploadMultipleImages 批量上传图片
+// UploadMultipleImages 批量上传图片并转为 base64
+// 注意：当前实现为 base64 存储，保留 IPFS 相关代码以便日后切换
 func UploadMultipleImages(c *gin.Context) {
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -75,8 +79,7 @@ func UploadMultipleImages(c *gin.Context) {
 		return
 	}
 
-	var hashes []string
-	var uris []string
+	var base64Images []string
 
 	for _, fileHeader := range files {
 		file, err := fileHeader.Open()
@@ -90,33 +93,43 @@ func UploadMultipleImages(c *gin.Context) {
 			continue
 		}
 
-		hash, err := getIPFSService().UploadFile(fileData, fileHeader.Filename)
-		if err != nil {
-			continue
-		}
-
-		hashes = append(hashes, hash)
-		uris = append(uris, "ipfs://"+hash)
+		// 转为 base64
+		base64Str := base64.StdEncoding.EncodeToString(fileData)
+		mimeType := http.DetectContentType(fileData)
+		dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Str)
+		base64Images = append(base64Images, dataURI)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"count":  len(hashes),
-		"hashes": hashes,
-		"uris":   uris,
+		"count":  len(base64Images),
+		"base64": base64Images,
+		"hashes": []string{}, // 保留字段
+		"uris":   []string{}, // 保留字段
 	})
 }
 
-// GenerateMetadata 生成并上传元数据
+// GenerateMetadata 生成元数据（不上传到IPFS，直接返回JSON）
+// 注意：当前实现为本地存储，保留 IPFS 相关代码以便日后切换
 func GenerateMetadata(c *gin.Context) {
 	var req struct {
-		Name         string   `json:"name" binding:"required"`
-		Description  string   `json:"description"`
-		SerialNumber string   `json:"serialNumber" binding:"required"`
-		BrandName    string   `json:"brandName"`
-		BrandAddress string   `json:"brandAddress"`
-		Category     string   `json:"category"`
-		Model        string   `json:"model"`
-		ImageHashes  []string `json:"imageHashes"`
+		Name               string   `json:"name" binding:"required"`
+		Description        string   `json:"description"`
+		SerialNumber       string   `json:"serialNumber" binding:"required"`
+		BrandName          string   `json:"brandName"`
+		BrandAddress       string   `json:"brandAddress"`
+		Category           string   `json:"category"`
+		Model              string   `json:"model"`
+		ImageHashes        []string `json:"imageHashes"`
+		// 商品详情
+		Size               string   `json:"size"`
+		Color              string   `json:"color"`
+		Condition          string   `json:"condition"`
+		ProductionDate     string   `json:"productionDate"`
+		ProductionLocation string   `json:"productionLocation"`
+		// NFC 信息
+		NfcTagId           string   `json:"nfcTagId"`
+		// 证书信息
+		CertificateUrl     string   `json:"certificateUrl"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,27 +139,54 @@ func GenerateMetadata(c *gin.Context) {
 		return
 	}
 
-	uri, err := getIPFSService().GenerateMetadataURI(
-		req.Name,
-		req.Description,
-		req.SerialNumber,
-		req.BrandName,
-		req.BrandAddress,
-		req.Category,
-		req.Model,
-		req.ImageHashes,
-	)
+	// 构建元数据（不上传到IPFS）
+	// 注意：图片不存储在链上元数据中，只存储在数据库
+	// 这样可以避免 Gas 过高的问题
+	metadata := map[string]interface{}{
+		"name":         req.Name,
+		"description":  req.Description,
+		"serialNumber": req.SerialNumber,
+		"brand": map[string]interface{}{
+			"name":     req.BrandName,
+			"address":  req.BrandAddress,
+			"verified": true,
+		},
+		"product": map[string]interface{}{
+			"category": req.Category,
+			"model":    req.Model,
+			"size":     req.Size,
+			"color":    req.Color,
+			"condition": req.Condition,
+			"productionDate": req.ProductionDate,
+			"productionLocation": req.ProductionLocation,
+		},
+		"media": map[string]interface{}{
+			"images":    []string{}, // 图片不存储在链上，只存储在数据库
+			"thumbnail": "",          // 缩略图也不存储在链上
+		},
+		"nfc": map[string]interface{}{
+			"tagId": req.NfcTagId,
+		},
+		"certificate": map[string]interface{}{
+			"url": req.CertificateUrl,
+		},
+	}
 
+	// 将元数据转为JSON字符串作为URI
+	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate metadata: " + err.Error(),
+			"error": "Failed to marshal metadata: " + err.Error(),
 		})
 		return
 	}
 
+	// 使用 data URI 格式存储元数据
+	metadataURI := fmt.Sprintf("data:application/json;base64,%s", base64.StdEncoding.EncodeToString(metadataJSON))
+
 	c.JSON(http.StatusOK, gin.H{
-		"uri": uri,
-		"url": "https://ipfs.io/ipfs/" + uri[7:], // 移除 ipfs:// 前缀
+		"uri": metadataURI,
+		"url": "", // 本地存储无需URL
 	})
 }
 

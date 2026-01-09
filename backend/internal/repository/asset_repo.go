@@ -53,7 +53,11 @@ func (r *AssetRepository) FindAll(limit, offset int) ([]model.Asset, error) {
 		return nil, err
 	}
 	var assets []model.Asset
-	err := r.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&assets).Error
+	// 排序：1. 已上架的优先 2. 按更新时间倒序 3. 按创建时间倒序
+	err := r.db.Order("is_listed DESC, updated_at DESC, created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&assets).Error
 	return assets, err
 }
 
@@ -72,7 +76,7 @@ func (r *AssetRepository) FindByOwner(owner string, limit, offset int) ([]model.
 	}
 	var assets []model.Asset
 	err := r.db.Where("owner = ?", owner).
-		Order("created_at DESC").
+		Order("is_listed DESC, updated_at DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&assets).Error
@@ -208,8 +212,9 @@ func (r *AssetRepository) FindListed(limit, offset int) ([]model.Asset, error) {
 		return nil, err
 	}
 	var assets []model.Asset
+	// 市场列表：按最近上架时间排序
 	err := r.db.Where("is_listed = ?", true).
-		Order("created_at DESC").
+		Order("updated_at DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&assets).Error
@@ -271,4 +276,14 @@ func (r *AssetRepository) UpdateVerificationStatus(assetID uint64, status model.
 	return r.db.Model(&model.Asset{}).
 		Where("id = ?", assetID).
 		Updates(updates).Error
+}
+
+// UpdateImages 更新资产的图片
+func (r *AssetRepository) UpdateImages(assetID uint64, imagesJSON string) error {
+	if err := r.ensureDB(); err != nil {
+		return err
+	}
+	return r.db.Model(&model.Asset{}).
+		Where("id = ?", assetID).
+		Update("images", imagesJSON).Error
 }

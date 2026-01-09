@@ -12,7 +12,7 @@
 import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import ImageUpload from './ImageUpload';
-import AreaSelector from './AreaSelector';
+import WorldAreaSelector from './WorldAreaSelector';
 
 // API 地址
 const API_URL = 'http://localhost:8080';
@@ -89,6 +89,149 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
   const [txHash, setTxHash] = useState('');
   const [txStatus, setTxStatus] = useState('');
 
+  // ==================== 一键填写 ====================
+  
+  /**
+   * 一键填写随机数据
+   * 自动生成所有表单字段的测试数据
+   */
+  const autoFillForm = () => {
+    // 品牌列表
+    const brands = ['Nike', 'Adidas', 'Gucci', 'Louis Vuitton', 'Prada', 'Chanel', 'Hermès', 'Rolex', 'Apple', 'Samsung'];
+    
+    // 商品名称模板
+    const productNames = {
+      shoes: ['Air Jordan 1', 'Air Max 90', 'Yeezy 350', 'Stan Smith', 'Superstar'],
+      clothing: ['连帽卫衣', 'T恤', '牛仔裤', '运动裤', '夹克'],
+      accessories: ['手提包', '钱包', '腰带', '太阳镜', '围巾'],
+      electronics: ['智能手机', '笔记本电脑', '平板电脑', '智能手表', '耳机'],
+      jewelry: ['项链', '手链', '戒指', '耳环', '胸针'],
+      watches: ['机械表', '石英表', '智能手表', '潜水表', '飞行员表']
+    };
+    
+    // 颜色列表
+    const colors = ['黑色', '白色', '红色', '蓝色', '绿色', '黄色', '粉色', '紫色', '灰色', '棕色', '橙色', '金色', '银色'];
+    
+    // 尺码列表
+    const sizes = {
+      shoes: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45'],
+      clothing: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+      accessories: ['均码', '小号', '中号', '大号'],
+      electronics: ['64GB', '128GB', '256GB', '512GB', '1TB'],
+      jewelry: ['14寸', '16寸', '18寸', '20寸'],
+      watches: ['38mm', '40mm', '42mm', '44mm']
+    };
+    
+    // 描述模板
+    const descriptions = [
+      '全新未拆封，原装正品，支持专柜验货',
+      '经典款式，品质保证，附带完整包装和配件',
+      '限量版，稀有配色，收藏价值极高',
+      '热门款式，现货速发，支持无理由退换',
+      '官方授权，正品保证，提供质保服务',
+      '精品推荐，细节完美，值得入手',
+      '爆款热卖，性价比超高，不容错过',
+      '高端奢华，彰显品味，送礼佳品'
+    ];
+    
+    // 生产地列表（省-市-区）
+    const locations = [
+      '广东省-广州市-天河区',
+      '广东省-深圳市-南山区',
+      '广东省-东莞市-东莞市',
+      '浙江省-杭州市-西湖区',
+      '浙江省-温州市-鹿城区',
+      '江苏省-苏州市-姑苏区',
+      '上海市-上海市-浦东新区',
+      '北京市-北京市-朝阳区',
+      '福建省-福州市-鼓楼区',
+      '福建省-泉州市-丰泽区'
+    ];
+    
+    // 随机选择函数
+    const random = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+    
+    // 随机选择分类
+    const categories = ['shoes', 'clothing', 'accessories', 'electronics', 'jewelry', 'watches'];
+    const selectedCategory = random(categories) as keyof typeof productNames;
+    
+    // 随机选择品牌
+    const selectedBrand = random(brands);
+    
+    // 随机选择商品名称
+    const selectedProductName = random(productNames[selectedCategory]);
+    
+    // 生成完整商品名称
+    const fullName = `${selectedBrand} ${selectedProductName}`;
+    
+    // 生成序列号
+    const timestamp = Date.now().toString().slice(-8);
+    const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const serialNumber = `${selectedBrand.toUpperCase().replace(/\s+/g, '')}-ITEM-${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${new Date().getDate().toString().padStart(2, '0')}-${randomNum}`;
+    
+    // 随机选择颜色
+    const selectedColor = random(colors);
+    
+    // 随机选择尺码
+    const sizeOptions = sizes[selectedCategory] || sizes.accessories;
+    const selectedSize = random(sizeOptions);
+    
+    // 随机选择描述
+    const selectedDescription = random(descriptions);
+    
+    // 随机选择生产地
+    const selectedLocation = random(locations);
+    
+    // 随机生成生产日期（最近一年内）
+    const today = new Date();
+    const randomDays = Math.floor(Math.random() * 365);
+    const productionDate = new Date(today.getTime() - randomDays * 24 * 60 * 60 * 1000);
+    const formattedDate = productionDate.toISOString().split('T')[0];
+    
+    // 随机选择状况
+    const conditions: ('new' | 'used' | 'refurbished')[] = ['new', 'new', 'new', 'used', 'refurbished']; // 新品概率更高
+    const selectedCondition = random(conditions);
+    
+    // 生成型号
+    const modelSuffix = ['Pro', 'Max', 'Plus', 'Ultra', 'Classic', 'Limited', 'Special Edition'];
+    const selectedModel = `${selectedProductName} ${random(modelSuffix)}`;
+    
+    // 随机生成 NFC 标签 ID（总是生成）
+    const nfcTagId = `NFC-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    
+    // 随机生成证书 URL（总是生成）
+    const certificateUrl = `https://certificate.${selectedBrand.toLowerCase().replace(/\s+/g, '')}.com/${Math.random().toString(36).substring(2, 10)}`;
+    
+    // 随机决定是否立即上架
+    const shouldList = Math.random() > 0.5;
+    const price = shouldList ? (Math.random() * 5 + 0.1).toFixed(3) : '';
+    
+    // 填充表单
+    setFormData({
+      name: fullName,
+      serialNumber: serialNumber,
+      description: selectedDescription,
+      category: selectedCategory,
+      brand: selectedBrand,
+      model: selectedModel,
+      size: selectedSize,
+      color: selectedColor,
+      condition: selectedCondition,
+      productionDate: formattedDate,
+      productionLocation: selectedLocation,
+      nfcTagId: nfcTagId,
+      certificateUrl: certificateUrl,
+      listImmediately: shouldList,
+      price: price
+    });
+    
+    // 清空错误
+    setErrors([]);
+    
+    // 提示用户
+    alert(`✅ 已自动填充表单！\n\n📦 商品：${fullName}\n🏷️ 序列号：${serialNumber}\n🎨 颜色：${selectedColor}\n📏 尺码：${selectedSize}\n${shouldList ? `💰 价格：${price} ETH` : '📦 暂不上架'}\n\n⚠️ 请记得上传图片！`);
+  };
+
   // ==================== 表单验证 ====================
   
   /**
@@ -146,10 +289,17 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('🔥 表单提交开始');
+    console.log('📋 表单数据:', formData);
+    console.log('🖼️ 图片数量:', imageHashes.length);
+    
     // 验证表单
     if (!validateForm()) {
+      console.log('❌ 表单验证失败');
       return;
     }
+    
+    console.log('✅ 表单验证通过');
     
     setUploading(true);
     setUploadProgress(0);
@@ -224,8 +374,53 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
       
       // 获取资产 ID（从事件中）
       const assetId = receipt.logs[0].args?.assetId || receipt.logs[0].args?.[0];
+      console.log('🔍 获取到的 assetId:', assetId);
+      console.log('🖼️ imageHashes 数量:', imageHashes.length);
+      console.log('🖼️ imageHashes 内容:', imageHashes);
       
-      // ==================== 步骤 3：如果需要，立即上架 ====================
+      // ==================== 步骤 3：更新资产图片到数据库 ====================
+      if (assetId && imageHashes.length > 0) {
+        setTxStatus('正在保存图片...');
+        setUploadProgress(80);
+        
+        // 收集所有 base64 图片（以 data: 开头）
+        const base64Images = imageHashes.filter(h => h.startsWith('data:'));
+        console.log('📸 过滤后的 base64 图片数量:', base64Images.length);
+        
+        if (base64Images.length > 0) {
+          try {
+            console.log('🚀 开始上传图片到数据库...');
+            console.log('📡 API URL:', `${API_URL}/assets/${assetId}/images`);
+            console.log('📦 请求数据:', { images: base64Images.map(img => img.substring(0, 50) + '...') });
+            
+            const updateResponse = await fetch(`${API_URL}/assets/${assetId}/images`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ images: base64Images })
+            });
+            
+            console.log('📥 响应状态:', updateResponse.status);
+            
+            if (!updateResponse.ok) {
+              const errorText = await updateResponse.text();
+              console.error('❌ 图片更新失败:', errorText);
+              console.warn('图片更新失败，但资产已注册成功');
+            } else {
+              const result = await updateResponse.json();
+              console.log('✅ 图片保存成功:', result);
+            }
+          } catch (err) {
+            console.error('❌ 图片更新异常:', err);
+            console.warn('图片更新失败，但资产已注册成功:', err);
+          }
+        } else {
+          console.warn('⚠️ 没有 base64 格式的图片');
+        }
+      } else {
+        console.warn('⚠️ 跳过图片保存:', { assetId, imageHashesLength: imageHashes.length });
+      }
+      
+      // ==================== 步骤 4：如果需要，立即上架 ====================
       if (formData.listImmediately && formData.price && assetId) {
         setTxStatus('正在上架资产...');
         setUploadProgress(85);
@@ -246,8 +441,19 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
       }, 2000);
       
     } catch (error: any) {
-      console.error('注册失败:', error);
-      setTxStatus(`注册失败: ${error.message || error}`);
+      console.error('❌ 注册失败:', error);
+      console.error('错误详情:', error);
+      const errorMsg = error.message || error.toString() || '未知错误';
+      
+      // 检测常见错误：Missing revert data (Nonce 不匹配)
+      if (errorMsg.includes('missing revert data') || errorMsg.includes('Nonce too high') || errorMsg.includes('replacement transaction underpriced')) {
+        const tip = "⚠️ 交易失败：检测到钱包状态不一致。\n\n💡 解决方案：请重置 MetaMask 账户（设置 -> 高级 -> 清除活动数据），然后刷新页面重试。";
+        setTxStatus(tip);
+        alert(tip);
+      } else {
+        setTxStatus(`❌ 注册失败: ${errorMsg}`);
+        alert(`注册失败: ${errorMsg}`);
+      }
     } finally {
       setUploading(false);
     }
@@ -276,9 +482,10 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
     });
     setImageHashes([]);
     setErrors([]);
+    setUploading(false);
+    setUploadProgress(0);
     setTxHash('');
     setTxStatus('');
-    setUploadProgress(0);
   };
 
   /**
@@ -337,6 +544,58 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
   
   return (
     <form className="asset-registration-form" onSubmit={handleSubmit}>
+      
+      {/* ==================== 一键填写按钮 ==================== */}
+      <div className="form-section" style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        border: 'none',
+        padding: '20px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '15px'
+        }}>
+          <div style={{ color: 'white' }}>
+            <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 'bold' }}>
+              🎲 快速测试
+            </h3>
+            <p style={{ margin: 0, fontSize: '14px', opacity: 0.9 }}>
+              点击按钮自动填充所有表单字段（随机生成测试数据）
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={autoFillForm}
+            style={{
+              background: 'white',
+              color: '#667eea',
+              border: 'none',
+              padding: '12px 30px',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+              transition: 'all 0.3s ease',
+              whiteSpace: 'nowrap'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            }}
+          >
+            ✨ 一键填写所有字段
+          </button>
+        </div>
+      </div>
       
       {/* ==================== 基础信息 ==================== */}
       <div className="form-section">
@@ -571,10 +830,10 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
           
           <div className="form-group">
             <label>生产地</label>
-            <AreaSelector
+            <WorldAreaSelector
               value={formData.productionLocation}
               onChange={(value) => updateField('productionLocation', value)}
-              placeholder="请选择省/市/区"
+              placeholder="请选择生产地（中国/世界各国）"
             />
             <span className="help-text">
               💡 支持搜索，选择省市区后自动组合完整地址

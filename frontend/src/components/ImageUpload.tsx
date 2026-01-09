@@ -16,7 +16,8 @@ import React, { useState, useRef } from 'react';
 interface UploadedImage {
   file: File;              // 原始文件
   preview: string;         // 预览 URL
-  hash?: string;           // IPFS 哈希值
+  hash?: string;           // IPFS 哈希值（保留字段，兼容 IPFS）
+  base64?: string;         // base64 编码的图片（data URI 格式）
   uploading: boolean;      // 是否正在上传
   progress: number;        // 上传进度（0-100）
   error?: string;          // 错误信息
@@ -100,40 +101,55 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     try {
       // 创建 FormData
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('images', file);  // 改为 'images' 以匹配后端
       
       // 上传到后端 IPFS 接口
-      const response = await fetch(`${apiUrl}/ipfs/upload/image`, {
+      const response = await fetch(`${apiUrl}/ipfs/upload/images`, {  // 改为 /images
         method: 'POST',
         body: formData
       });
       
       if (!response.ok) {
-        throw new Error('上传失败');
+        // 尝试获取详细错误信息
+        let errorMessage = '上传失败';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // 如果响应不是 JSON，使用状态文本
+          errorMessage = `上传失败 (${response.status} ${response.statusText})`;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
-      const hash = data.hash;
+      
+      // 后端返回的是数组 { base64: ["data:image/jpeg;base64,..."], count: 1 }
+      const base64Array = data.base64 || [];
+      if (base64Array.length === 0) {
+        throw new Error('服务器返回数据格式错误：缺少 base64 字段');
+      }
+      
+      const imageData = base64Array[0]; // 获取第一个 base64 图片
       
       // 更新图片状态
       setImages(prev => {
         const updated = [...prev];
         updated[imageIndex] = {
           ...updated[imageIndex],
-          hash,
+          base64: imageData, // 存储 base64
           uploading: false,
           progress: 100
         };
         return updated;
       });
       
-      // 通知父组件
-      const allHashes = images
-        .filter(img => img.hash)
-        .map(img => img.hash!)
-        .concat(hash);
+      // 通知父组件：传递所有 base64 图片
+      const allImageData = [...images
+        .filter(img => img.base64)
+        .map(img => img.base64!), imageData];
       
-      onUpload(allHashes);
+      onUpload(allImageData);
       
     } catch (error) {
       console.error('上传失败:', error);
@@ -158,12 +174,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     const newImages = images.filter((_, i) => i !== index);
     setImages(newImages);
     
-    // 通知父组件更新哈希列表
-    const allHashes = newImages
-      .filter(img => img.hash)
-      .map(img => img.hash!);
+    // 通知父组件更新图片列表（base64）
+    const allImageData = newImages
+      .filter(img => img.base64)
+      .map(img => img.base64!);
     
-    onUpload(allHashes);
+    onUpload(allImageData);
   };
 
   return (

@@ -33,11 +33,11 @@ const (
 // Brand 品牌
 type Brand struct {
 	ID            uint64    `json:"id" gorm:"primaryKey"`
-	BrandAddress  string    `json:"brandAddress" gorm:"uniqueIndex;not null"`
-	BrandName     string    `json:"brandName" gorm:"not null"`
+	BrandAddress  string    `json:"brandAddress" gorm:"type:varchar(191);uniqueIndex;not null"`
+	BrandName     string    `json:"brandName" gorm:"type:varchar(191);not null"`
 	IsAuthorized  bool      `json:"isAuthorized" gorm:"default:false"`
 	RegisteredAt  time.Time `json:"registeredAt" gorm:"not null"`
-	TxHash        string    `json:"txHash" gorm:"index"`
+	TxHash        string    `json:"txHash" gorm:"type:varchar(191);index"`
 	BlockNum      uint64    `json:"blockNum" gorm:"index"`
 	gorm.Model
 }
@@ -45,16 +45,17 @@ type Brand struct {
 // Asset 资产
 type Asset struct {
 	ID             uint64             `json:"id" gorm:"primaryKey"`
-	Owner          string             `json:"owner" gorm:"index;not null"`
-	Brand          string             `json:"brand" gorm:"index"` // 品牌方地址
-	Name           string             `json:"name" gorm:"not null"`
-	SerialNumber   string             `json:"serialNumber" gorm:"uniqueIndex;not null"`
+	Owner          string             `json:"owner" gorm:"type:varchar(191);index;not null"`
+	Brand          string             `json:"brand" gorm:"type:varchar(191);index"` // 品牌方地址
+	Name           string             `json:"name" gorm:"type:varchar(500);not null"`
+	SerialNumber   string             `json:"serialNumber" gorm:"type:varchar(191);uniqueIndex;not null"`
 	MetadataURI    string             `json:"metadataURI" gorm:"type:text"`
+	Images         string             `json:"images" gorm:"type:text"` // JSON 数组，存储 base64 图片
 	Status         VerificationStatus `json:"status" gorm:"default:0"`
 	IsListed       bool               `json:"isListed" gorm:"default:false"`
-	Price          string             `json:"price" gorm:"default:0"` // wei as string
+	Price          string             `json:"price" gorm:"type:varchar(191);default:0"` // wei as string
 	CreatedAt      time.Time          `json:"createdAt" gorm:"not null"`
-	TxHash         string             `json:"txHash" gorm:"index;not null"`
+	TxHash         string             `json:"txHash" gorm:"type:varchar(191);index;not null"`
 	BlockNum       uint64             `json:"blockNum" gorm:"index;not null"`
 	gorm.Model
 }
@@ -63,9 +64,9 @@ type Asset struct {
 type Order struct {
 	ID             uint64      `json:"id" gorm:"primaryKey"`
 	AssetID        uint64      `json:"assetId" gorm:"index;not null"`
-	Seller         string      `json:"seller" gorm:"index;not null"`
-	Buyer          string      `json:"buyer" gorm:"index;not null"`
-	Price          string      `json:"price" gorm:"not null"` // wei as string
+	Seller         string      `json:"seller" gorm:"type:varchar(191);index;not null"`
+	Buyer          string      `json:"buyer" gorm:"type:varchar(191);index;not null"`
+	Price          string      `json:"price" gorm:"type:varchar(191);not null"` // wei as string
 	Status         OrderStatus `json:"status" gorm:"default:0"`
 	OrderCreatedAt time.Time   `json:"orderCreatedAt" gorm:"not null"`
 	PaidAt         *time.Time  `json:"paidAt"`
@@ -74,7 +75,7 @@ type Order struct {
 	CompletedAt    *time.Time  `json:"completedAt"`
 	CanRefund      bool        `json:"canRefund" gorm:"default:true"`
 	RefundDeadline *time.Time  `json:"refundDeadline"`
-	TxHash         string      `json:"txHash" gorm:"index;not null"`
+	TxHash         string      `json:"txHash" gorm:"type:varchar(191);index;not null"`
 	BlockNum       uint64      `json:"blockNum" gorm:"index;not null"`
 	gorm.Model
 }
@@ -83,9 +84,9 @@ type Order struct {
 type AssetOwnerHistory struct {
 	ID        uint64    `json:"id" gorm:"primaryKey"`
 	AssetID   uint64    `json:"assetId" gorm:"index;not null"`
-	Owner     string    `json:"owner" gorm:"index;not null"`
+	Owner     string    `json:"owner" gorm:"type:varchar(191);index;not null"`
 	Timestamp time.Time `json:"timestamp" gorm:"not null"`
-	TxHash    string    `json:"txHash" gorm:"index;not null"`
+	TxHash    string    `json:"txHash" gorm:"type:varchar(191);index;not null"`
 	BlockNum  uint64    `json:"blockNum" gorm:"index;not null"`
 	gorm.Model
 }

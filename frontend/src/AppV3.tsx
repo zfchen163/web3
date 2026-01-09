@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import './App.css'
 import AssetRegistrationForm from './components/AssetRegistrationForm'
+import Modal from './components/Modal'
+import AssetDetailModal from './components/AssetDetailModal'
 import './components/AssetRegistrationForm.css'
 import './components/ImageUpload.css'
+import './components/Modal.css'
+import './components/AssetDetailModal.css'
 
 // V3 合约地址（已部署）
-const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+const CONTRACT_ADDRESS = "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
 const API_URL = "http://localhost:8080"
 
 // V3 合约 ABI
@@ -93,6 +97,7 @@ interface Asset {
   name: string
   serialNumber: string
   metadataURI: string
+  images?: string  // JSON 格式的 base64 图片数组
   status: VerificationStatus
   createdAt: string
   isListed: boolean
@@ -123,6 +128,19 @@ interface Brand {
   brandName: string
   isAuthorized: boolean
   registeredAt: string
+}
+
+interface UserReputation {
+  id: number
+  userAddress: string
+  level: number
+  stars: number
+  experiencePoints: number
+  totalOrders: number
+  completedOrders: number
+  sellerRating: number
+  buyerRating: number
+  onTimeDeliveryRate: number
 }
 
 type ViewMode = 'marketplace' | 'myAssets' | 'myOrders' | 'register'
@@ -157,9 +175,99 @@ function AppV3() {
   const [txHash, setTxHash] = useState<string>("")
   const [txStatus, setTxStatus] = useState<string>("")
   
+  // 模态框状态
+  const [modalOpen, setModalOpen] = useState<boolean>(false)
+  const [modalType, setModalType] = useState<'price' | 'transfer'>('price')
+  const [modalAssetId, setModalAssetId] = useState<number>(0)
+  
+  // 详情模态框状态
+  const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false)
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
+  
+  // Hardhat 测试账户列表（动态加载）
+  const [testAccounts, setTestAccounts] = useState<{ value: string; label: string }[]>([])
+  
+  // 动态加载 Hardhat 账户
+  const loadHardhatAccounts = async () => {
+    try {
+      if (typeof window.ethereum !== 'undefined') {
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        
+        // 尝试获取所有账户
+        const accounts = await provider.listAccounts()
+        
+        // 如果没有账户，使用默认的 Hardhat 账户列表
+        if (accounts.length === 0) {
+          // 使用 eth_accounts 获取
+          const ethAccounts = await provider.send("eth_accounts", [])
+          
+          const accountsWithBalance = await Promise.all(
+            ethAccounts.map(async (addr: string, index: number) => {
+              try {
+                const balance = await provider.getBalance(addr)
+                const balanceEth = parseFloat(ethers.formatEther(balance)).toFixed(0)
+                return {
+                  value: addr,
+                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)}) - ${balanceEth} ETH`
+                }
+              } catch (e) {
+                return {
+                  value: addr,
+                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)})`
+                }
+              }
+            })
+          )
+          
+          setTestAccounts(accountsWithBalance)
+        } else {
+          // 使用 listAccounts 的结果
+          const accountsWithBalance = await Promise.all(
+            accounts.map(async (signer, index) => {
+              const addr = await signer.getAddress()
+              try {
+                const balance = await provider.getBalance(addr)
+                const balanceEth = parseFloat(ethers.formatEther(balance)).toFixed(0)
+                return {
+                  value: addr,
+                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)}) - ${balanceEth} ETH`
+                }
+              } catch (e) {
+                return {
+                  value: addr,
+                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)})`
+                }
+              }
+            })
+          )
+          
+          setTestAccounts(accountsWithBalance)
+        }
+      }
+    } catch (error) {
+      console.error("加载 Hardhat 账户失败:", error)
+      // 如果失败，使用默认列表
+      setTestAccounts([
+        { value: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', label: '账户 #0 (0xf39F...2266) - 10000 ETH' },
+        { value: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', label: '账户 #1 (0x7099...79C8) - 10000 ETH' },
+        { value: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', label: '账户 #2 (0x3C44...93BC) - 10000 ETH' },
+        { value: '0x90F79bf6EB2c4f870365E785982E1f101E93b906', label: '账户 #3 (0x90F7...b906) - 10000 ETH' },
+        { value: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', label: '账户 #4 (0x15d3...6A65) - 10000 ETH' },
+        { value: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', label: '账户 #5 (0x9965...A4dc) - 10000 ETH' },
+        { value: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', label: '账户 #6 (0x976E...0aa9) - 10000 ETH' },
+        { value: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', label: '账户 #7 (0x14dC...9955) - 10000 ETH' },
+        { value: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', label: '账户 #8 (0x2361...1E8f) - 10000 ETH' },
+        { value: '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', label: '账户 #9 (0xa0Ee...9720) - 10000 ETH' },
+      ])
+    }
+  }
+  
   // 品牌信息
   const [isBrand, setIsBrand] = useState<boolean>(false)
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  
+  // 用户信誉
+  const [userReputation, setUserReputation] = useState<UserReputation | null>(null)
   
   // 连接钱包
   const connectWallet = async () => {
@@ -176,6 +284,12 @@ function AppV3() {
         
         const adminAddress = await contract.admin()
         setIsAdmin(accounts[0].toLowerCase() === adminAddress.toLowerCase())
+        
+        // 加载用户信誉
+        await loadUserReputation(accounts[0])
+        
+        // 加载 Hardhat 测试账户
+        await loadHardhatAccounts()
         
         await loadData(accounts[0])
       } catch (error) {
@@ -228,6 +342,19 @@ function AppV3() {
       setTotalItems(data.total || 0)
     } catch (error) {
       console.error("加载我的资产失败:", error)
+    }
+  }
+  
+  // 加载用户信誉
+  const loadUserReputation = async (acc: string) => {
+    try {
+      const response = await fetch(`${API_URL}/reputation/${acc}`)
+      const result = await response.json()
+      if (result.data) {
+        setUserReputation(result.data)
+      }
+    } catch (error) {
+      console.error("加载用户信誉失败:", error)
     }
   }
   
@@ -315,38 +442,93 @@ function AppV3() {
   
   // 上架资产
   const listAsset = async (assetId: number, price: string) => {
+    setLoading(true)
+    setTxStatus("正在上架...")
+    
     try {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer)
       
       const priceWei = ethers.parseEther(price)
+      
+      setTxStatus("等待交易确认...")
       const tx = await contract.listAsset(assetId, priceWei)
+      setTxHash(tx.hash)
+      
+      setTxStatus("交易已提交，等待确认...")
       await tx.wait()
       
-      alert("上架成功！")
+      setTxStatus("上架成功！正在刷新数据...")
+      
+      // 等待 2 秒让事件监听器同步数据
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // 刷新数据
       await loadData()
+      
+      setTxStatus("✅ 上架成功！")
+      
+      // 2秒后清除状态
+      setTimeout(() => {
+        setTxStatus("")
+        setTxHash("")
+      }, 2000)
+      
     } catch (error: any) {
       console.error("上架失败:", error)
-      alert(`上架失败: ${error.message}`)
+      setTxStatus(`❌ 上架失败: ${error.message}`)
+      
+      setTimeout(() => {
+        setTxStatus("")
+      }, 5000)
+    } finally {
+      setLoading(false)
     }
   }
   
   // 下架资产
   const unlistAsset = async (assetId: number) => {
+    setLoading(true)
+    setTxStatus("正在下架...")
+    
     try {
       const provider = new ethers.BrowserProvider(window.ethereum)
       const signer = await provider.getSigner()
       const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer)
       
+      setTxStatus("等待交易确认...")
       const tx = await contract.unlistAsset(assetId)
+      setTxHash(tx.hash)
+      
+      setTxStatus("交易已提交，等待确认...")
       await tx.wait()
       
-      alert("下架成功！")
+      setTxStatus("下架成功！正在刷新数据...")
+      
+      // 等待 2 秒让事件监听器同步数据
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // 刷新数据
       await loadData()
+      
+      setTxStatus("✅ 下架成功！")
+      
+      // 2秒后清除状态
+      setTimeout(() => {
+        setTxStatus("")
+        setTxHash("")
+      }, 2000)
+      
     } catch (error: any) {
       console.error("下架失败:", error)
-      alert(`下架失败: ${error.message}`)
+      setTxStatus(`❌ 下架失败: ${error.message}`)
+      
+      setTimeout(() => {
+        setTxStatus("")
+      }, 5000)
+    } finally {
+      setLoading(false)
     }
   }
   
@@ -518,8 +700,154 @@ function AppV3() {
   const renderAssetCard = (asset: Asset) => {
     const isOwner = asset.owner.toLowerCase() === account.toLowerCase()
     
+    // 解析图片数据（支持 base64 和 IPFS hash）
+    let images: string[] = []
+    let displayImageUrl: string | null = null
+    
+    if (asset.images) {
+      try {
+        images = JSON.parse(asset.images)
+      } catch (e) {
+        // 如果不是 JSON，可能是单个字符串
+        images = asset.images ? [asset.images] : []
+      }
+    }
+    
+    // 获取第一张图片用于显示
+    if (images.length > 0) {
+      const firstImage = images[0]
+      // 如果是 base64（以 data: 开头），直接使用；如果是 IPFS hash，转换为 URL
+      displayImageUrl = firstImage.startsWith('data:') 
+        ? firstImage 
+        : firstImage ? `https://ipfs.io/ipfs/${firstImage}` : null
+    }
+    
+    // 解析元数据获取详细信息
+    let metadata: any = {}
+    if (asset.metadataURI) {
+      try {
+        if (asset.metadataURI.startsWith('data:application/json;base64,')) {
+          const base64Data = asset.metadataURI.replace('data:application/json;base64,', '')
+          const jsonStr = atob(base64Data)
+          metadata = JSON.parse(jsonStr)
+        }
+      } catch (e) {
+        console.error('Failed to parse metadata:', e)
+      }
+    }
+    
+    // 打开详情页面
+    const openDetail = () => {
+      setSelectedAsset(asset)
+      setDetailModalOpen(true)
+    }
+
     return (
-      <div key={asset.id} className="asset-card">
+      <div key={asset.id} className="asset-card" style={{ position: 'relative' }}>
+        {/* 上架状态标签 */}
+        {asset.isListed && (
+          <div style={{
+            position: 'absolute',
+            top: '15px',
+            right: '15px',
+            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            fontWeight: '700',
+            boxShadow: '0 4px 15px rgba(17, 153, 142, 0.4)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>🏷️</span>
+            <span>在售中</span>
+          </div>
+        )}
+        
+        {!asset.isListed && viewMode === 'myAssets' && (
+          <div style={{
+            position: 'absolute',
+            top: '15px',
+            right: '15px',
+            background: 'rgba(107, 114, 128, 0.9)',
+            color: 'white',
+            padding: '8px 16px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            fontWeight: '600',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <span>📦</span>
+            <span>未上架</span>
+          </div>
+        )}
+        
+        {/* 图片预览 */}
+        {displayImageUrl && (
+          <div 
+            onClick={openDetail}
+            style={{ 
+              width: '100%', 
+              height: '200px', 
+              marginBottom: '20px',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              background: '#f3f4f6',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'transform 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.02)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)'
+            }}
+          >
+            <img 
+              src={displayImageUrl} 
+              alt={asset.name}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain'
+              }}
+              onError={(e) => {
+                // 如果图片加载失败，隐藏图片区域
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+            {/* 悬停提示 */}
+            <div style={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              background: 'rgba(0, 0, 0, 0.7)',
+              color: 'white',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: '600',
+              opacity: 0,
+              transition: 'opacity 0.3s ease',
+              pointerEvents: 'none'
+            }}
+            className="view-detail-hint"
+            >
+              🔍 点击查看详情
+            </div>
+          </div>
+        )}
+        
         <div className="asset-header">
           <span className="asset-id">#{asset.id}</span>
           <span className="asset-name">{asset.name}</span>
@@ -529,10 +857,114 @@ function AppV3() {
         </div>
         
         <div className="asset-details">
+          {/* 描述信息 */}
+          {metadata.description && (
+            <div className="detail-item" style={{ 
+              gridColumn: '1 / -1',
+              background: 'rgba(99, 102, 241, 0.05)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '8px'
+            }}>
+              <span className="label">📝 商品描述</span>
+              <span className="value" style={{ 
+                display: 'block', 
+                marginTop: '6px',
+                lineHeight: '1.6',
+                color: '#4b5563'
+              }}>
+                {metadata.description}
+              </span>
+            </div>
+          )}
+          
+          {/* 基本信息 */}
           <div className="detail-item">
             <span className="label">序列号</span>
             <span className="value monospace">{asset.serialNumber}</span>
           </div>
+          
+          {metadata.attributes?.category && (
+            <div className="detail-item">
+              <span className="label">分类</span>
+              <span className="value">{metadata.attributes.category}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.brand && (
+            <div className="detail-item">
+              <span className="label">品牌</span>
+              <span className="value" style={{ fontWeight: '600' }}>{metadata.attributes.brand}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.model && (
+            <div className="detail-item">
+              <span className="label">型号</span>
+              <span className="value">{metadata.attributes.model}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.size && (
+            <div className="detail-item">
+              <span className="label">尺码</span>
+              <span className="value">{metadata.attributes.size}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.color && (
+            <div className="detail-item">
+              <span className="label">颜色</span>
+              <span className="value">{metadata.attributes.color}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.condition && (
+            <div className="detail-item">
+              <span className="label">新旧程度</span>
+              <span className="value">
+                {metadata.attributes.condition === 'new' && '🆕 全新'}
+                {metadata.attributes.condition === 'used' && '♻️ 二手'}
+                {metadata.attributes.condition === 'refurbished' && '🔧 翻新'}
+              </span>
+            </div>
+          )}
+          
+          {metadata.attributes?.productionDate && (
+            <div className="detail-item">
+              <span className="label">生产日期</span>
+              <span className="value">{metadata.attributes.productionDate}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.productionLocation && (
+            <div className="detail-item">
+              <span className="label">生产地</span>
+              <span className="value">🌍 {metadata.attributes.productionLocation}</span>
+            </div>
+          )}
+          
+          {metadata.attributes?.certificateUrl && (
+            <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
+              <span className="label">品牌证书</span>
+              <span className="value">
+                <a 
+                  href={metadata.attributes.certificateUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: '#6366f1',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  📜 查看官方证书 →
+                </a>
+              </span>
+            </div>
+          )}
           
           <div className="detail-item">
             <span className="label">所有者</span>
@@ -540,14 +972,47 @@ function AppV3() {
           </div>
           
           <div className="detail-item">
-            <span className="label">状态</span>
+            <span className="label">验证状态</span>
             <span className={`value status-${asset.status}`}>{getStatusText(asset.status)}</span>
           </div>
           
+          <div className="detail-item">
+            <span className="label">上架状态</span>
+            <span className="value" style={{ 
+              color: asset.isListed ? '#11998e' : '#6b7280',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              {asset.isListed ? (
+                <>
+                  <span>🏷️</span>
+                  <span>在售中</span>
+                </>
+              ) : (
+                <>
+                  <span>📦</span>
+                  <span>未上架</span>
+                </>
+              )}
+            </span>
+          </div>
+          
           {asset.isListed && (
-            <div className="detail-item">
-              <span className="label">价格</span>
-              <span className="value" style={{ color: '#11998e', fontWeight: '700', fontSize: '1.2em' }}>
+            <div className="detail-item" style={{
+              background: 'linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%)',
+              padding: '12px',
+              borderRadius: '12px',
+              marginTop: '8px'
+            }}>
+              <span className="label" style={{ color: '#11998e', fontWeight: '600' }}>售价</span>
+              <span className="value" style={{ 
+                color: '#11998e', 
+                fontWeight: '800', 
+                fontSize: '1.5em',
+                textShadow: '0 2px 4px rgba(17, 153, 142, 0.2)'
+              }}>
                 {formatPrice(asset.price)} ETH
               </span>
             </div>
@@ -555,9 +1020,49 @@ function AppV3() {
         </div>
         
         <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {/* 查看详情按钮 - 所有情况下都显示 */}
+          <button 
+            onClick={openDetail}
+            className="btn btn-detail"
+            style={{ 
+              flex: '1',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              border: 'none',
+              color: 'white',
+              fontWeight: '600',
+              fontSize: '15px',
+              padding: '12px 20px',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)'
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'
+            }}
+          >
+            <span style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              gap: '8px',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              🔍 查看详情
+            </span>
+          </button>
+          
           {viewMode === 'marketplace' && asset.isListed && !isOwner && (
             <button onClick={() => buyAsset(asset)} className="btn btn-success" style={{ flex: '1' }}>
-              购买
+              💰 购买
             </button>
           )}
           
@@ -566,8 +1071,9 @@ function AppV3() {
               {!asset.isListed ? (
                 <button 
                   onClick={() => {
-                    const price = prompt("请输入价格 (ETH):")
-                    if (price) listAsset(asset.id, price)
+                    setModalAssetId(asset.id)
+                    setModalType('price')
+                    setModalOpen(true)
                   }}
                   className="btn btn-primary"
                   style={{ flex: '1' }}
@@ -582,8 +1088,9 @@ function AppV3() {
               
               <button 
                 onClick={() => {
-                  const toAddress = prompt("请输入接收地址:")
-                  if (toAddress) transferAsset(asset.id, toAddress)
+                  setModalAssetId(asset.id)
+                  setModalType('transfer')
+                  setModalOpen(true)
                 }}
                 className="btn btn-secondary"
                 style={{ flex: '1' }}
@@ -678,16 +1185,96 @@ function AppV3() {
           ) : (
             <div className="wallet-info">
               <div className="account-info">
-                <div className="account-row">
-                  <span className="account-label">账户:</span>
-                  <span className="account-address">{formatAddress(account)}</span>
+                <div className="account-header">
+                  <span className="account-label">当前账户</span>
+                  {isBrand && <span className="stat-badge badge-brand">✨ 品牌方</span>}
+                  {isAdmin && <span className="stat-badge badge-admin">👑 管理员</span>}
+                  {userReputation && (
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      marginLeft: '12px'
+                    }}>
+                      <span style={{
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        Lv.{userReputation.level}
+                        {Array.from({ length: userReputation.stars }).map((_, i) => (
+                          <span key={i}>⭐</span>
+                        ))}
+                      </span>
+                      <span style={{
+                        fontSize: '12px',
+                        color: '#6b7280'
+                      }}>
+                        {userReputation.experiencePoints} EXP
+                      </span>
+                    </div>
+                  )}
                 </div>
-                {isBrand && <span className="stat-badge">品牌方</span>}
-                {isAdmin && <span className="stat-badge">管理员</span>}
+                <div className="account-address-display">
+                  <span className="account-address-full" title={account}>{account}</span>
+                  <button 
+                    className="copy-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(account)
+                      alert('地址已复制到剪贴板！')
+                    }}
+                    title="复制地址"
+                  >
+                    📋
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </header>
+      
+      {/* 全局交易状态提示 */}
+      {txStatus && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: txStatus.includes('✅') ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 
+                     txStatus.includes('❌') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' :
+                     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          padding: '20px 30px',
+          borderRadius: '16px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+          zIndex: 9999,
+          minWidth: '300px',
+          maxWidth: '500px',
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+            {loading && !txStatus.includes('✅') && !txStatus.includes('❌') && (
+              <span style={{ marginRight: '10px' }}>⏳</span>
+            )}
+            {txStatus}
+          </div>
+          {txHash && (
+            <div style={{ 
+              fontSize: '12px', 
+              opacity: 0.9,
+              marginTop: '8px',
+              wordBreak: 'break-all'
+            }}>
+              交易哈希: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+            </div>
+          )}
+        </div>
+      )}
       
       {account && (
         <>
@@ -764,12 +1351,50 @@ function AppV3() {
                   {viewMode === 'myAssets' && '📦 我的资产'}
                   {viewMode === 'myOrders' && '📋 我的订单'}
                 </h2>
-                <div className="stats">
+                <div className="stats" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                   <span className="stat-badge">
                     {viewMode === 'marketplace' && `${listedAssets.length} 件在售`}
                     {viewMode === 'myAssets' && `${myAssets.length} 件资产`}
                     {viewMode === 'myOrders' && `${myOrders.length} 个订单`}
                   </span>
+                  <button 
+                    onClick={() => loadData()}
+                    disabled={loading}
+                    style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      opacity: loading ? 0.6 : 1,
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loading) {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                    title="刷新数据"
+                  >
+                    <span style={{ 
+                      display: 'inline-block',
+                      animation: loading ? 'spin 1s linear infinite' : 'none'
+                    }}>
+                      🔄
+                    </span>
+                    <span>{loading ? '刷新中...' : '刷新'}</span>
+                  </button>
                 </div>
               </div>
               
@@ -832,6 +1457,57 @@ function AppV3() {
           <p>请连接钱包开始使用</p>
         </div>
       )}
+      
+      {/* 美化的模态框 */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onConfirm={(value) => {
+          if (modalType === 'price') {
+            listAsset(modalAssetId, value)
+          } else {
+            transferAsset(modalAssetId, value)
+          }
+        }}
+        title={modalType === 'price' ? '设置上架价格' : '转移资产'}
+        icon={modalType === 'price' ? '💰' : '🔄'}
+        placeholder={modalType === 'price' ? '例如: 50' : '0x...'}
+        hint={modalType === 'price' ? '输入您想要出售的价格（单位：ETH）' : '选择接收方账户或输入自定义地址'}
+        inputType={modalType === 'price' ? 'number' : 'select'}
+        selectOptions={modalType === 'transfer' ? testAccounts : []}
+      />
+      
+      {/* 资产详情模态框 */}
+      <AssetDetailModal
+        asset={selectedAsset}
+        isOpen={detailModalOpen}
+        onClose={() => {
+          setDetailModalOpen(false)
+          setSelectedAsset(null)
+        }}
+        onBuy={(asset) => {
+          setDetailModalOpen(false)
+          buyAsset(asset)
+        }}
+        onList={(assetId) => {
+          setDetailModalOpen(false)
+          setModalAssetId(assetId)
+          setModalType('price')
+          setModalOpen(true)
+        }}
+        onUnlist={(assetId) => {
+          setDetailModalOpen(false)
+          unlistAsset(assetId)
+        }}
+        onTransfer={(assetId) => {
+          setDetailModalOpen(false)
+          setModalAssetId(assetId)
+          setModalType('transfer')
+          setModalOpen(true)
+        }}
+        isOwner={selectedAsset?.owner.toLowerCase() === account.toLowerCase()}
+        viewMode={viewMode}
+      />
       </div>
     </div>
   )

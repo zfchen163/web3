@@ -24,6 +24,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"chain-vault-backend/internal/api"
@@ -36,7 +37,7 @@ import (
 
 func main() {
 	log.Println("🚀 ChainVault V3 后端服务启动中...")
-	log.Println("=" + "=".repeat(60))
+	log.Println(strings.Repeat("=", 60))
 
 	// ==================== 1. 加载配置 ====================
 	// 从 .env 文件或环境变量加载配置
@@ -142,6 +143,11 @@ func main() {
 	//   - 返回指定ID的资产完整信息
 	r.GET("/assets/:id", api.GetAsset)
 	
+	// 更新资产图片：PUT /assets/:id/images
+	//   - 请求体：{"images": ["data:image/jpeg;base64,...", ...]}
+	//   - 用于在资产注册后更新图片
+	r.PUT("/assets/:id/images", api.UpdateAssetImages)
+	
 	// 通过序列号查询：GET /assets/serial/NK-AJ1-001
 	//   - 用于扫描NFC标签后查询资产
 	r.GET("/assets/serial/:serialNumber", api.GetAssetBySerialNumber)
@@ -185,6 +191,20 @@ func main() {
 	//   - 返回指定资产的所有订单记录
 	r.GET("/orders/asset/:assetId", api.GetOrdersByAsset)
 	
+	// -------------------- 用户信誉相关 API --------------------
+	// 获取用户信誉：GET /reputation/0x...
+	//   - 返回用户等级、星级、经验值等信息
+	r.GET("/reputation/:address", api.GetUserReputation)
+	
+	// 创建评价：POST /reviews
+	//   - 请求体：{"orderId": 123, "reviewerAddress": "0x...", "revieweeAddress": "0x...", "role": "seller", "rating": 5, "comment": "..."}
+	r.POST("/reviews", api.CreateReview)
+	
+	// 获取用户评价列表：GET /reviews/0x...?role=seller
+	//   - 返回用户收到的评价列表
+	//   - role参数可选（seller或buyer）
+	r.GET("/reviews/:address", api.GetUserReviews)
+	
 	// -------------------- IPFS 相关 API --------------------
 	// 上传单张图片：POST /ipfs/upload/image
 	//   - 表单字段：image (文件)
@@ -226,7 +246,7 @@ func main() {
 	log.Println("  - GET  /orders              订单列表")
 	log.Println("  - POST /ipfs/upload/image   上传图片")
 	log.Println("\n🎉 服务器启动成功，等待请求...")
-	log.Println("=" + "=".repeat(60))
+	log.Println(strings.Repeat("=", 60))
 	
 	// 启动 HTTP 服务器（阻塞）
 	if err := r.Run(":8080"); err != nil {

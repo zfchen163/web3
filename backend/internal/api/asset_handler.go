@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 
 	"chain-vault-backend/internal/service"
@@ -134,6 +135,49 @@ func HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "ok",
 		"message": "ChainVault API is running",
+	})
+}
+
+// UpdateAssetImages 更新资产的图片
+func UpdateAssetImages(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid asset ID",
+		})
+		return
+	}
+
+	var req struct {
+		Images []string `json:"images" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	// 过滤出 base64 格式的图片（以 data: 开头）
+	base64Images := make([]string, 0)
+	for _, img := range req.Images {
+		if strings.HasPrefix(img, "data:") {
+			base64Images = append(base64Images, img)
+		}
+	}
+
+	err = getAssetService().UpdateAssetImages(id, base64Images)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update images: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Images updated successfully",
 	})
 }
 
