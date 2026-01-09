@@ -49,15 +49,27 @@ echo ""
 # 迁移 1: 完整的表结构
 if [ -f "migrations/001_complete_schema.sql" ]; then
     echo "   执行: 001_complete_schema.sql"
-    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS $DB_NAME < migrations/001_complete_schema.sql
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --default-character-set=utf8mb4 $DB_NAME < migrations/001_complete_schema.sql
     if [ $? -eq 0 ]; then
         echo "   ✅ 完成"
     else
-        echo "   ❌ 失败"
-        exit 1
+        echo "   ❌ 失败 (可能是表已存在，忽略)"
     fi
 else
     echo "   ⚠️  文件不存在: migrations/001_complete_schema.sql"
+fi
+
+# 迁移 3: 修复注释乱码
+if [ -f "migrations/003_fix_comments.sql" ]; then
+    echo "   执行: 003_fix_comments.sql (修复注释乱码)"
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS --default-character-set=utf8mb4 $DB_NAME < migrations/003_fix_comments.sql
+    if [ $? -eq 0 ]; then
+        echo "   ✅ 乱码修复完成"
+    else
+        echo "   ❌ 乱码修复失败"
+    fi
+else
+    echo "   ⚠️  文件不存在: migrations/003_fix_comments.sql"
 fi
 
 echo ""

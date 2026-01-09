@@ -4,6 +4,7 @@ import (
 	"chain-vault-backend/internal/model"
 	"chain-vault-backend/internal/repository"
 	"encoding/json"
+	logpkg "log"
 	"time"
 )
 
@@ -73,14 +74,41 @@ func (s *AssetService) CreateAssetV3WithImages(assetID uint64, owner, brand, nam
 
 // UpdateAssetImages 更新资产的图片
 func (s *AssetService) UpdateAssetImages(assetID uint64, imageBase64Array []string) error {
+	var imagesJSON string
 	if len(imageBase64Array) > 0 {
-		imagesJSON, err := json.Marshal(imageBase64Array)
+		bytes, err := json.Marshal(imageBase64Array)
 		if err != nil {
 			return err
 		}
-		return s.repo.UpdateImages(assetID, string(imagesJSON))
+		imagesJSON = string(bytes)
 	}
-	return s.repo.UpdateImages(assetID, "")
+
+	// 打印日志以便调试
+	if len(imagesJSON) > 100 {
+		logpkg.Printf("Updating images for asset %d, data length: %d bytes", assetID, len(imagesJSON))
+	} else {
+		logpkg.Printf("Updating images for asset %d, data: %s", assetID, imagesJSON)
+	}
+
+	// 重试机制：尝试 20 次，每次间隔 500ms（共10秒），等待 EventListener 创建资产
+	// 前端在交易确认后立即调用此接口，但后端 EventListener 需要轮询区块，存在延迟
+	var lastErr error
+	for i := 0; i < 20; i++ {
+		err := s.repo.UpdateImages(assetID, imagesJSON)
+		if err == nil {
+			logpkg.Printf("Successfully updated images for asset %d on attempt %d", assetID, i+1)
+			return nil
+		}
+		// 如果是未找到资产错误，继续重试
+		lastErr = err
+		if i%5 == 0 { // 每5次打印一次日志
+			logpkg.Printf("Attempt %d/20: Failed to update images for asset %d: %v", i+1, assetID, err)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	
+	logpkg.Printf("Final failure: Could not update images for asset %d after 20 attempts: %v", assetID, lastErr)
+	return lastErr
 }
 
 func (s *AssetService) GetAsset(id uint64) (*model.Asset, error) {

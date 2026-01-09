@@ -135,7 +135,10 @@ func (r *AssetRepository) GetAssetsByDateRange(startDate, endDate string, limit,
 		query = query.Where("DATE(created_at) <= ?", endDate)
 	}
 	
-	err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&assets).Error
+	err := query.Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&assets).Error
 	return assets, err
 }
 
@@ -283,7 +286,17 @@ func (r *AssetRepository) UpdateImages(assetID uint64, imagesJSON string) error 
 	if err := r.ensureDB(); err != nil {
 		return err
 	}
-	return r.db.Model(&model.Asset{}).
+	result := r.db.Model(&model.Asset{}).
 		Where("id = ?", assetID).
-		Update("images", imagesJSON).Error
+		Update("images", imagesJSON)
+	
+	if result.Error != nil {
+		return result.Error
+	}
+	
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("asset %d not found", assetID)
+	}
+	
+	return nil
 }

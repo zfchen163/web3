@@ -373,13 +373,46 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
       const receipt = await tx.wait();
       
       // 获取资产 ID（从事件中）
-      const assetId = receipt.logs[0].args?.assetId || receipt.logs[0].args?.[0];
-      console.log('🔍 获取到的 assetId:', assetId);
+      // 遍历日志找到 AssetRegistered 事件
+      let assetId;
+      console.log('🔍 解析交易回执:', receipt);
+      
+      // 尝试解析所有日志以找到 AssetRegistered
+      for (const log of receipt.logs) {
+        try {
+          // 检查是否是 AssetRegistered 事件
+          // 事件签名 hash: 0x...
+          // 这里我们尝试解析日志
+          const parsedLog = contract.interface.parseLog({
+            topics: [...log.topics],
+            data: log.data
+          });
+          
+          if (parsedLog && parsedLog.name === 'AssetRegistered') {
+            assetId = parsedLog.args.assetId;
+            console.log('✅ 找到 AssetRegistered 事件，AssetID:', assetId.toString());
+            break;
+          }
+        } catch (e) {
+          // 忽略解析错误的日志（可能是其他合约的事件）
+          continue;
+        }
+      }
+      
+      // 降级策略：如果没找到特定事件，尝试使用第一个日志的第一个参数
+      if (!assetId) {
+        console.warn('⚠️ 未找到 AssetRegistered 事件，尝试使用第一个日志...');
+        assetId = receipt.logs[0]?.args?.assetId || receipt.logs[0]?.args?.[0];
+      }
+      
+      // 确保 assetId 是字符串或数字
+      const assetIdStr = assetId ? assetId.toString() : '';
+      
+      console.log('🔍 最终使用的 assetId:', assetIdStr);
       console.log('🖼️ imageHashes 数量:', imageHashes.length);
-      console.log('🖼️ imageHashes 内容:', imageHashes);
       
       // ==================== 步骤 3：更新资产图片到数据库 ====================
-      if (assetId && imageHashes.length > 0) {
+      if (assetIdStr && imageHashes.length > 0) {
         setTxStatus('正在保存图片...');
         setUploadProgress(80);
         
@@ -390,10 +423,11 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
         if (base64Images.length > 0) {
           try {
             console.log('🚀 开始上传图片到数据库...');
-            console.log('📡 API URL:', `${API_URL}/assets/${assetId}/images`);
-            console.log('📦 请求数据:', { images: base64Images.map(img => img.substring(0, 50) + '...') });
+            console.log('📡 API URL:', `${API_URL}/assets/${assetIdStr}/images`);
+            // 不打印完整图片数据，太长了
+            console.log('📦 请求包含图片数量:', base64Images.length);
             
-            const updateResponse = await fetch(`${API_URL}/assets/${assetId}/images`, {
+            const updateResponse = await fetch(`${API_URL}/assets/${assetIdStr}/images`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ images: base64Images })
@@ -404,20 +438,20 @@ const AssetRegistrationForm: React.FC<AssetRegistrationFormProps> = ({
             if (!updateResponse.ok) {
               const errorText = await updateResponse.text();
               console.error('❌ 图片更新失败:', errorText);
-              console.warn('图片更新失败，但资产已注册成功');
+              // 不要在界面上报错，因为资产已经注册成功了
+              // 只在控制台输出
             } else {
               const result = await updateResponse.json();
               console.log('✅ 图片保存成功:', result);
             }
           } catch (err) {
             console.error('❌ 图片更新异常:', err);
-            console.warn('图片更新失败，但资产已注册成功:', err);
           }
         } else {
           console.warn('⚠️ 没有 base64 格式的图片');
         }
       } else {
-        console.warn('⚠️ 跳过图片保存:', { assetId, imageHashesLength: imageHashes.length });
+        console.warn('⚠️ 跳过图片保存:', { assetId: assetIdStr, imageHashesLength: imageHashes.length });
       }
       
       // ==================== 步骤 4：如果需要，立即上架 ====================

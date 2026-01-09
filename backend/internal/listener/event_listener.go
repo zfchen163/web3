@@ -97,10 +97,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 			event := new(chain.AssetRegisteredEvent)
 
 			// 解析事件
-			// Topics[0] = 事件签名
-			// Topics[1] = assetId (uint256, indexed)
-			// Topics[2] = owner (address, indexed)
-			// Topics[3] = brand (address, indexed)
 			if len(logEntry.Topics) > 1 {
 				event.AssetId = new(big.Int).SetBytes(logEntry.Topics[1].Bytes()).Uint64()
 			}
@@ -139,10 +135,21 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 			event.TxHash = logEntry.TxHash.Hex()
 
 			// 处理事件（检查重复并保存）
+			// 1. 检查 AssetID 是否已存在
 			existing, _ := l.assetService.GetAsset(event.AssetId)
 			if existing != nil {
 				logpkg.Printf("Asset %d already exists, skipping", event.AssetId)
 				continue
+			}
+
+			// 2. 检查 SerialNumber 是否已存在 (如果序列号不为空)
+			if event.SerialNumber != "" {
+				existingBySN, _ := l.assetService.GetAssetBySerialNumber(event.SerialNumber)
+				if existingBySN != nil {
+					logpkg.Printf("Asset with SerialNumber %s already exists (ID: %d), skipping duplicate registration for AssetID %d", 
+						event.SerialNumber, existingBySN.ID, event.AssetId)
+					continue
+				}
 			}
 
 			// 使用 CreateAssetV3 保存完整信息
@@ -167,11 +174,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 		if eventSig == transferredEventSig {
 			event := new(chain.AssetTransferredEvent)
 
-			// 解析事件
-			// Topics[0] = 事件签名
-			// Topics[1] = assetId (uint256, indexed)
-			// Topics[2] = from (address, indexed)
-			// Topics[3] = to (address, indexed)
 			if len(logEntry.Topics) > 1 {
 				event.AssetId = new(big.Int).SetBytes(logEntry.Topics[1].Bytes()).Uint64()
 			}
@@ -185,7 +187,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 			event.BlockNumber = logEntry.BlockNumber
 			event.TxHash = logEntry.TxHash.Hex()
 
-			// 更新资产所有者
 			if err := l.assetService.UpdateAssetOwner(
 				event.AssetId,
 				event.To.Hex(),
@@ -202,10 +203,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 		if eventSig == listedEventSig {
 			event := new(chain.AssetListedEvent)
 
-			// 解析事件
-			// Topics[0] = 事件签名
-			// Topics[1] = assetId (uint256, indexed)
-			// Topics[2] = seller (address, indexed)
 			if len(logEntry.Topics) > 1 {
 				event.AssetId = new(big.Int).SetBytes(logEntry.Topics[1].Bytes()).Uint64()
 			}
@@ -213,7 +210,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 				event.Seller = common.BytesToAddress(logEntry.Topics[2].Bytes())
 			}
 
-			// 解析 price (非 indexed 参数，在 Data 中)
 			if len(logEntry.Data) >= 32 {
 				event.Price = new(big.Int).SetBytes(logEntry.Data[:32])
 			}
@@ -221,7 +217,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 			event.BlockNumber = logEntry.BlockNumber
 			event.TxHash = logEntry.TxHash.Hex()
 
-			// 更新资产上架状态
 			priceWei := event.Price.String()
 			if err := l.assetService.ListAsset(event.AssetId, priceWei); err != nil {
 				logpkg.Printf("Failed to list asset %d: %v", event.AssetId, err)
@@ -234,9 +229,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 		if eventSig == unlistedEventSig {
 			event := new(chain.AssetUnlistedEvent)
 
-			// 解析事件
-			// Topics[0] = 事件签名
-			// Topics[1] = assetId (uint256, indexed)
 			if len(logEntry.Topics) > 1 {
 				event.AssetId = new(big.Int).SetBytes(logEntry.Topics[1].Bytes()).Uint64()
 			}
@@ -244,7 +236,6 @@ func (l *EventListener) scanHistoricalBlocks(ctx context.Context, fromBlock, toB
 			event.BlockNumber = logEntry.BlockNumber
 			event.TxHash = logEntry.TxHash.Hex()
 
-			// 更新资产下架状态
 			if err := l.assetService.UnlistAsset(event.AssetId); err != nil {
 				logpkg.Printf("Failed to unlist asset %d: %v", event.AssetId, err)
 			} else {
@@ -293,45 +284,6 @@ func (l *EventListener) watchWithPolling(ctx context.Context, startBlock uint64)
 				l.scanHistoricalBlocks(ctx, lastProcessedBlock+1, latestBlock)
 				lastProcessedBlock = latestBlock
 			}
-		}
-	}
-}
-
-func (l *EventListener) processEvents(ctx context.Context, eventChan <-chan *chain.AssetRegisteredEvent) {
-	for {
-		select {
-		case event := <-eventChan:
-			if event == nil {
-				logpkg.Println("Event channel closed")
-				return
-			}
-
-			logpkg.Printf("Received event: AssetID=%d, Owner=%s, Name=%s, TxHash=%s",
-				event.AssetId, event.Owner.Hex(), event.Name, event.TxHash)
-
-			// 检查是否已存在（避免重复）
-			existing, _ := l.assetService.GetAsset(event.AssetId)
-			if existing != nil {
-				logpkg.Printf("Asset %d already exists, skipping", event.AssetId)
-				continue
-			}
-
-			// 保存到数据库
-			if err := l.assetService.CreateAsset(
-				event.AssetId,
-				event.Owner.Hex(),
-				event.Name,
-				event.TxHash,
-				event.BlockNumber,
-			); err != nil {
-				logpkg.Printf("Failed to save asset: %v", err)
-			} else {
-				logpkg.Printf("Asset %d saved successfully", event.AssetId)
-			}
-
-		case <-ctx.Done():
-			logpkg.Println("Event listener stopped")
-			return
 		}
 	}
 }

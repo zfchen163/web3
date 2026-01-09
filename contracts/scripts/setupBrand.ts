@@ -18,8 +18,29 @@ async function main() {
 
   // 检查当前品牌状态
   console.log("\n🔍 检查品牌状态...");
-  const brandInfo = await contract.brands(admin.address);
+  let brandInfo = { brandAddress: ethers.ZeroAddress, brandName: "", isAuthorized: false, registeredAt: 0 };
+  
+  try {
+    const rawBrandInfo = await contract.brands(admin.address);
+    // 处理返回结果：如果是 struct，可以直接访问属性
+    // 如果返回数组，则按索引访问 [brandAddress, brandName, isAuthorized, registeredAt]
+    if (rawBrandInfo && typeof rawBrandInfo.brandAddress !== 'undefined') {
+        brandInfo = rawBrandInfo;
+    } else if (Array.isArray(rawBrandInfo)) {
+        brandInfo = {
+            brandAddress: rawBrandInfo[0],
+            brandName: rawBrandInfo[1],
+            isAuthorized: rawBrandInfo[2],
+            registeredAt: rawBrandInfo[3]
+        };
+    }
+  } catch (e) {
+    // 可能是第一次部署，没有数据或者调用失败
+    console.log("⚠️ 无法获取品牌信息，假设未注册");
+  }
+
   console.log(`品牌地址: ${brandInfo.brandAddress}`);
+
   console.log(`品牌名称: ${brandInfo.brandName}`);
   console.log(`是否授权: ${brandInfo.isAuthorized}`);
 
@@ -34,7 +55,23 @@ async function main() {
   }
 
   // 检查是否已授权
-  const updatedBrandInfo = await contract.brands(admin.address);
+  let updatedBrandInfo = { brandAddress: ethers.ZeroAddress, brandName: "", isAuthorized: false, registeredAt: 0 };
+  try {
+    const rawInfo = await contract.brands(admin.address);
+    if (rawInfo && typeof rawInfo.brandAddress !== 'undefined') {
+        updatedBrandInfo = rawInfo;
+    } else if (Array.isArray(rawInfo)) {
+        updatedBrandInfo = {
+            brandAddress: rawInfo[0],
+            brandName: rawInfo[1],
+            isAuthorized: rawInfo[2],
+            registeredAt: rawInfo[3]
+        };
+    }
+  } catch (e) {
+    console.log("⚠️ 获取更新后的品牌信息失败");
+  }
+
   if (!updatedBrandInfo.isAuthorized) {
     // 授权品牌
     console.log("\n🔐 授权品牌...");
@@ -47,8 +84,25 @@ async function main() {
 
   // 验证最终状态
   console.log("\n✅ 最终状态:");
-  const finalBrandInfo = await contract.brands(admin.address);
+  let finalBrandInfo = { brandAddress: ethers.ZeroAddress, brandName: "", isAuthorized: false, registeredAt: 0 };
+  try {
+    const rawInfo = await contract.brands(admin.address);
+    if (rawInfo && typeof rawInfo.brandAddress !== 'undefined') {
+        finalBrandInfo = rawInfo;
+    } else if (Array.isArray(rawInfo)) {
+        finalBrandInfo = {
+            brandAddress: rawInfo[0],
+            brandName: rawInfo[1],
+            isAuthorized: rawInfo[2],
+            registeredAt: rawInfo[3]
+        };
+    }
+  } catch (e) {
+    console.log("⚠️ 获取最终品牌信息失败");
+  }
+  
   console.log(`品牌地址: ${finalBrandInfo.brandAddress}`);
+
   console.log(`品牌名称: ${finalBrandInfo.brandName}`);
   console.log(`是否授权: ${finalBrandInfo.isAuthorized}`);
   console.log(`注册时间: ${new Date(Number(finalBrandInfo.registeredAt) * 1000).toLocaleString()}`);
