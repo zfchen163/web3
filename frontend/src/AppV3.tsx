@@ -193,72 +193,66 @@ function AppV3() {
       if (typeof window.ethereum !== 'undefined') {
         const provider = new ethers.BrowserProvider(window.ethereum)
         
-        // 尝试获取所有账户
-        const accounts = await provider.listAccounts()
-        
-        // 如果没有账户，使用默认的 Hardhat 账户列表
-        if (accounts.length === 0) {
-          // 使用 eth_accounts 获取
-          const ethAccounts = await provider.send("eth_accounts", [])
-          
-          const accountsWithBalance = await Promise.all(
-            ethAccounts.map(async (addr: string, index: number) => {
-              try {
-                const balance = await provider.getBalance(addr)
-                const balanceEth = parseFloat(ethers.formatEther(balance)).toFixed(0)
-                return {
-                  value: addr,
-                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)}) - ${balanceEth} ETH`
-                }
-              } catch (e) {
-                return {
-                  value: addr,
-                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)})`
-                }
-              }
-            })
-          )
-          
-          setTestAccounts(accountsWithBalance)
-        } else {
-          // 使用 listAccounts 的结果
-          const accountsWithBalance = await Promise.all(
-            accounts.map(async (signer, index) => {
-              const addr = await signer.getAddress()
-              try {
-                const balance = await provider.getBalance(addr)
-                const balanceEth = parseFloat(ethers.formatEther(balance)).toFixed(0)
-                return {
-                  value: addr,
-                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)}) - ${balanceEth} ETH`
-                }
-              } catch (e) {
-                return {
-                  value: addr,
-                  label: `账户 #${index} (${addr.slice(0, 6)}...${addr.slice(-4)})`
-                }
-              }
-            })
-          )
-          
-          setTestAccounts(accountsWithBalance)
+        // 默认 Hardhat 账户列表（作为后备）
+        const defaultAccounts = [
+          "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", // Account #0 (Admin)
+          "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", // Account #1
+          "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC", // Account #2
+          "0x90F79bf6EB2c4f870365E785982E1f101E93b906", // Account #3
+          "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", // Account #4
+          "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc", // Account #5
+          "0x976EA74026E726554dB657fA54763abd0C3a0aa9", // Account #6
+          "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955", // Account #7
+          "0x23618e81E3f5cdF7f54C3d65f7Fc0474e0e61806", // Account #8
+          "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720"  // Account #9
+        ];
+
+        let accountsToUse = defaultAccounts;
+
+        try {
+          // 尝试连接本地 Hardhat 节点获取所有账户
+          // 这是最可靠的方法，因为 MetaMask 只返回当前授权的账户
+          const localProvider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+          const localAccounts = await localProvider.listAccounts();
+          if (localAccounts.length > 0) {
+            accountsToUse = localAccounts.map(a => a.address);
+          }
+        } catch (e) {
+          console.warn("无法从本地节点获取账户，使用默认列表", e);
         }
+
+        const accountsWithBalance = await Promise.all(
+          accountsToUse.map(async (addr: string, index: number) => {
+            try {
+              // 获取余额
+              const balance = await provider.getBalance(addr)
+              const balanceEth = parseFloat(ethers.formatEther(balance)).toFixed(2)
+              // 标记当前账户
+              const isCurrent = addr.toLowerCase() === account.toLowerCase();
+              return {
+                value: addr,
+                label: `账户 #${index} ${isCurrent ? '(当前)' : ''} - ${balanceEth} ETH`
+              }
+            } catch (e) {
+              return {
+                value: addr,
+                label: `账户 #${index} (${addr.slice(0, 6)}...)`
+              }
+            }
+          })
+        )
+        
+        // 过滤掉当前账户（不能转给自己）
+        const filteredAccounts = accountsWithBalance.filter(
+          acc => acc.value.toLowerCase() !== account.toLowerCase()
+        );
+        
+        setTestAccounts(filteredAccounts)
       }
     } catch (error) {
-      console.error("加载 Hardhat 账户失败:", error)
-      // 如果失败，使用默认列表
-      setTestAccounts([
-        { value: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', label: '账户 #0 (0xf39F...2266) - 10000 ETH' },
-        { value: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', label: '账户 #1 (0x7099...79C8) - 10000 ETH' },
-        { value: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', label: '账户 #2 (0x3C44...93BC) - 10000 ETH' },
-        { value: '0x90F79bf6EB2c4f870365E785982E1f101E93b906', label: '账户 #3 (0x90F7...b906) - 10000 ETH' },
-        { value: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', label: '账户 #4 (0x15d3...6A65) - 10000 ETH' },
-        { value: '0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc', label: '账户 #5 (0x9965...A4dc) - 10000 ETH' },
-        { value: '0x976EA74026E726554dB657fA54763abd0C3a0aa9', label: '账户 #6 (0x976E...0aa9) - 10000 ETH' },
-        { value: '0x14dC79964da2C08b23698B3D3cc7Ca32193d9955', label: '账户 #7 (0x14dC...9955) - 10000 ETH' },
-        { value: '0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f', label: '账户 #8 (0x2361...1E8f) - 10000 ETH' },
-        { value: '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720', label: '账户 #9 (0xa0Ee...9720) - 10000 ETH' },
-      ])
+      console.error("加载账户失败:", error)
+      // 出错时设置为空，用户可以手动输入
+      setTestAccounts([])
     }
   }
   
