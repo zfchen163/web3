@@ -151,8 +151,15 @@ echo -e "${CYAN}═════════════════════�
 
 cd "$PROJECT_ROOT/backend" || exit 1
 
+echo -e "${YELLOW}🔄 正在编译后端服务...${NC}"
+go build -o main cmd/api/main.go
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ 后端编译失败！${NC}"
+    exit 1
+fi
+
 echo -e "${YELLOW}🔄 正在启动后端服务...${NC}"
-go run cmd/api/main.go > /tmp/backend.log 2>&1 &
+./main > /tmp/backend.log 2>&1 &
 BACKEND_PID=$!
 
 # 等待后端服务启动
@@ -227,9 +234,8 @@ echo -e "${PURPLE}│${NC}  ${GREEN}✅ 前端服务${NC}          http://localh
 echo -e "${PURPLE}│${NC}     PID: $FRONTEND_PID"
 echo -e "${PURPLE}│${NC}     日志: tail -f /tmp/frontend.log"
 echo -e "${PURPLE}│${NC}"
-echo -e "${PURPLE}│${NC}  ${GREEN}✅ MySQL 数据库${NC}      localhost:3306"
-echo -e "${PURPLE}│${NC}     用户: root / root"
-echo -e "${PURPLE}│${NC}     数据库: chainvault"
+echo -e "${PURPLE}│${NC}  ${GREEN}✅ 数据库${NC}            SQLite (默认)"
+echo -e "${PURPLE}│${NC}     文件: backend/chainvault.db"
 echo -e "${PURPLE}│${NC}"
 echo -e "${PURPLE}└──────────────────────────────────────────────────────────┘${NC}"
 

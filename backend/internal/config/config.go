@@ -18,7 +18,8 @@ func Load() *Config {
 	loadEnvFile(".env")
 	
 	return &Config{
-		DatabaseURL:    getEnv("DATABASE_URL", "chainvault:chainvault@tcp(localhost:3306)/chainvault?charset=utf8mb4&parseTime=True&loc=Local"),
+		// 默认使用 SQLite 数据库，无需安装 MySQL
+		DatabaseURL:    getEnv("DATABASE_URL", "chainvault.db"),
 		EthRPCURL:      getEnv("ETH_RPC_URL", "http://127.0.0.1:8545"),
 		ContractAddress: getEnv("CONTRACT_ADDRESS", ""),
 		StartBlock:     0, // 从 0 开始监听，实际部署后应该从部署区块开始

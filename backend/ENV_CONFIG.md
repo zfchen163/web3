@@ -4,8 +4,10 @@
 
 ```env
 # 数据库配置
-# 格式: postgres://用户名:密码@主机:端口/数据库名?sslmode=disable
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/chainvault?sslmode=disable
+# 默认使用 SQLite (chainvault.db)，无需额外配置。
+# 如果想使用 MySQL，请使用以下格式:
+# DATABASE_URL=root:root@tcp(localhost:3306)/chainvault?charset=utf8mb4&parseTime=True&loc=Local
+# DATABASE_URL=postgres://postgres:postgres@localhost:5432/chainvault?sslmode=disable
 
 # 以太坊节点配置
 ETH_RPC_URL=http://127.0.0.1:8545

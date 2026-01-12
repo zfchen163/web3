@@ -159,6 +159,10 @@ func (s *AssetService) GetListedAssets(limit, offset int) ([]model.Asset, error)
 	return s.repo.FindListed(limit, offset)
 }
 
+func (s *AssetService) GetListedAssetsCount() (int64, error) {
+	return s.repo.CountListed()
+}
+
 func (s *AssetService) GetAssetsByStatus(status model.VerificationStatus, limit, offset int) ([]model.Asset, error) {
 	return s.repo.FindByStatus(status, limit, offset)
 }

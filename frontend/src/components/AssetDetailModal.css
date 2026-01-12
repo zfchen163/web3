@@ -15,6 +15,8 @@
   animation: fadeIn 0.3s ease-out;
   padding: 20px;
   overflow-y: auto;
+  /* 确保内容在滚动时也保持居中 */
+  overflow-x: hidden;
 }
 
 .asset-detail-modal {
@@ -27,6 +29,8 @@
   position: relative;
   animation: slideUp 0.4s ease-out;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  /* 确保模态框在父容器中居中 */
+  margin: auto;
 }
 
 @keyframes fadeIn {

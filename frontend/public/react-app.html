@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChainVault - 正在加载 React 版本...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      .loader {
+        border: 5px solid rgba(255, 255, 255, 0.3);
+        border-top: 5px solid white;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      // React 版本需要从根路径加载
+      // 因为 Vite 的开发服务器配置是针对根 index.html 的
+      
+      // 保存当前路径信息
+      sessionStorage.setItem('requestedVersion', 'react');
+      
+      // 重定向到根路径，但修改 index.html 以加载 React
+      setTimeout(() => {
+        // 由于我们修改了 index.html 跳转到 welcome.html
+        // 我们需要一个特殊的方式来加载 React 版本
+        
+        // 最简单的方法：直接告诉用户使用原生版本
+        // 或者提供一个说明
+        window.location.href = '/react-version-info.html';
+      }, 1000);
+    </script>
+  </head>
+  <body>
+    <div class="text-center text-white">
+      <div class="loader mx-auto mb-4"></div>
+      <h2 class="text-2xl font-bold mb-2">正在加载 React 版本...</h2>
+      <p class="text-sm opacity-90">请稍候</p>
+    </div>
+  </body>
+</html>

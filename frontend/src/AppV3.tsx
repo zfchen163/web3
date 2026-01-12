@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
-import './App.css'
 import AssetRegistrationForm from './components/AssetRegistrationForm'
 import Modal from './components/Modal'
-import AssetDetailModal from './components/AssetDetailModal'
+import AssetDetailModalV2 from './components/AssetDetailModalV2'
+import AssetCard from './components/AssetCard'
 import './components/AssetRegistrationForm.css'
 import './components/ImageUpload.css'
 import './components/Modal.css'
-import './components/AssetDetailModal.css'
 
 // V3 合约地址（已部署）
-const CONTRACT_ADDRESS = "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e"
+const CONTRACT_ADDRESS = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
 const API_URL = "http://localhost:8080"
 
 // V3 合约 ABI
@@ -694,42 +693,6 @@ function AppV3() {
   const renderAssetCard = (asset: Asset) => {
     const isOwner = asset.owner.toLowerCase() === account.toLowerCase()
     
-    // 解析图片数据（支持 base64 和 IPFS hash）
-    let images: string[] = []
-    let displayImageUrl: string | null = null
-    
-    if (asset.images) {
-      try {
-        images = JSON.parse(asset.images)
-      } catch (e) {
-        // 如果不是 JSON，可能是单个字符串
-        images = asset.images ? [asset.images] : []
-      }
-    }
-    
-    // 获取第一张图片用于显示
-    if (images.length > 0) {
-      const firstImage = images[0]
-      // 如果是 base64（以 data: 开头），直接使用；如果是 IPFS hash，转换为 URL
-      displayImageUrl = firstImage.startsWith('data:') 
-        ? firstImage 
-        : firstImage ? `https://ipfs.io/ipfs/${firstImage}` : null
-    }
-    
-    // 解析元数据获取详细信息
-    let metadata: any = {}
-    if (asset.metadataURI) {
-      try {
-        if (asset.metadataURI.startsWith('data:application/json;base64,')) {
-          const base64Data = asset.metadataURI.replace('data:application/json;base64,', '')
-          const jsonStr = atob(base64Data)
-          metadata = JSON.parse(jsonStr)
-        }
-      } catch (e) {
-        console.error('Failed to parse metadata:', e)
-      }
-    }
-    
     // 打开详情页面
     const openDetail = () => {
       setSelectedAsset(asset)
@@ -737,366 +700,31 @@ function AppV3() {
     }
 
     return (
-      <div key={asset.id} className="asset-card" style={{ position: 'relative' }}>
-        {/* 上架状态标签 */}
-        {asset.isListed && (
-          <div style={{
-            position: 'absolute',
-            top: '15px',
-            right: '15px',
-            background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            fontSize: '14px',
-            fontWeight: '700',
-            boxShadow: '0 4px 15px rgba(17, 153, 142, 0.4)',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span>🏷️</span>
-            <span>在售中</span>
-          </div>
-        )}
-        
-        {!asset.isListed && viewMode === 'myAssets' && (
-          <div style={{
-            position: 'absolute',
-            top: '15px',
-            right: '15px',
-            background: 'rgba(107, 114, 128, 0.9)',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '20px',
-            fontSize: '14px',
-            fontWeight: '600',
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span>📦</span>
-            <span>未上架</span>
-          </div>
-        )}
-        
-        {/* 图片预览 */}
-        {displayImageUrl && (
-          <div 
-            onClick={openDetail}
-            style={{ 
-              width: '100%', 
-              height: '200px', 
-              marginBottom: '20px',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              background: '#f3f4f6',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              position: 'relative',
-              transition: 'transform 0.3s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.02)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)'
-            }}
-          >
-            <img 
-              src={displayImageUrl} 
-              alt={asset.name}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain'
-              }}
-              onError={(e) => {
-                // 如果图片加载失败，隐藏图片区域
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-            {/* 悬停提示 */}
-            <div style={{
-              position: 'absolute',
-              bottom: '10px',
-              right: '10px',
-              background: 'rgba(0, 0, 0, 0.7)',
-              color: 'white',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: '600',
-              opacity: 0,
-              transition: 'opacity 0.3s ease',
-              pointerEvents: 'none'
-            }}
-            className="view-detail-hint"
-            >
-              🔍 点击查看详情
-            </div>
-          </div>
-        )}
-        
-        <div className="asset-header">
-          <span className="asset-id">#{asset.id}</span>
-          <span className="asset-name">{asset.name}</span>
-          {asset.status === VerificationStatus.Verified && (
-            <span className="verified-badge">✓ 已验证</span>
-          )}
-        </div>
-        
-        <div className="asset-details">
-          {/* 描述信息 */}
-          {metadata.description && (
-            <div className="detail-item" style={{ 
-              gridColumn: '1 / -1',
-              background: 'rgba(99, 102, 241, 0.05)',
-              padding: '12px',
-              borderRadius: '8px',
-              marginBottom: '8px'
-            }}>
-              <span className="label">📝 商品描述</span>
-              <span className="value" style={{ 
-                display: 'block', 
-                marginTop: '6px',
-                lineHeight: '1.6',
-                color: '#4b5563'
-              }}>
-                {metadata.description}
-              </span>
-            </div>
-          )}
-          
-          {/* 基本信息 */}
-          <div className="detail-item">
-            <span className="label">序列号</span>
-            <span className="value monospace">{asset.serialNumber}</span>
-          </div>
-          
-          {metadata.attributes?.category && (
-            <div className="detail-item">
-              <span className="label">分类</span>
-              <span className="value">{metadata.attributes.category}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.brand && (
-            <div className="detail-item">
-              <span className="label">品牌</span>
-              <span className="value" style={{ fontWeight: '600' }}>{metadata.attributes.brand}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.model && (
-            <div className="detail-item">
-              <span className="label">型号</span>
-              <span className="value">{metadata.attributes.model}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.size && (
-            <div className="detail-item">
-              <span className="label">尺码</span>
-              <span className="value">{metadata.attributes.size}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.color && (
-            <div className="detail-item">
-              <span className="label">颜色</span>
-              <span className="value">{metadata.attributes.color}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.condition && (
-            <div className="detail-item">
-              <span className="label">新旧程度</span>
-              <span className="value">
-                {metadata.attributes.condition === 'new' && '🆕 全新'}
-                {metadata.attributes.condition === 'used' && '♻️ 二手'}
-                {metadata.attributes.condition === 'refurbished' && '🔧 翻新'}
-              </span>
-            </div>
-          )}
-          
-          {metadata.attributes?.productionDate && (
-            <div className="detail-item">
-              <span className="label">生产日期</span>
-              <span className="value">{metadata.attributes.productionDate}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.productionLocation && (
-            <div className="detail-item">
-              <span className="label">生产地</span>
-              <span className="value">🌍 {metadata.attributes.productionLocation}</span>
-            </div>
-          )}
-          
-          {metadata.attributes?.certificateUrl && (
-            <div className="detail-item" style={{ gridColumn: '1 / -1' }}>
-              <span className="label">品牌证书</span>
-              <span className="value">
-                <a 
-                  href={metadata.attributes.certificateUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  style={{ 
-                    color: '#6366f1',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  📜 查看官方证书 →
-                </a>
-              </span>
-            </div>
-          )}
-          
-          <div className="detail-item">
-            <span className="label">所有者</span>
-            <span className="value monospace clickable">{formatAddress(asset.owner)}</span>
-          </div>
-          
-          <div className="detail-item">
-            <span className="label">验证状态</span>
-            <span className={`value status-${asset.status}`}>{getStatusText(asset.status)}</span>
-          </div>
-          
-          <div className="detail-item">
-            <span className="label">上架状态</span>
-            <span className="value" style={{ 
-              color: asset.isListed ? '#11998e' : '#6b7280',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}>
-              {asset.isListed ? (
-                <>
-                  <span>🏷️</span>
-                  <span>在售中</span>
-                </>
-              ) : (
-                <>
-                  <span>📦</span>
-                  <span>未上架</span>
-                </>
-              )}
-            </span>
-          </div>
-          
-          {asset.isListed && (
-            <div className="detail-item" style={{
-              background: 'linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%)',
-              padding: '12px',
-              borderRadius: '12px',
-              marginTop: '8px'
-            }}>
-              <span className="label" style={{ color: '#11998e', fontWeight: '600' }}>售价</span>
-              <span className="value" style={{ 
-                color: '#11998e', 
-                fontWeight: '800', 
-                fontSize: '1.5em',
-                textShadow: '0 2px 4px rgba(17, 153, 142, 0.2)'
-              }}>
-                {formatPrice(asset.price)} ETH
-              </span>
-            </div>
-          )}
-        </div>
-        
-        <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {/* 查看详情按钮 - 所有情况下都显示 */}
-          <button 
-            onClick={openDetail}
-            className="btn btn-detail"
-            style={{ 
-              flex: '1',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              color: 'white',
-              fontWeight: '600',
-              fontSize: '15px',
-              padding: '12px 20px',
-              borderRadius: '12px',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)'
-            }}
-          >
-            <span style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              gap: '8px',
-              position: 'relative',
-              zIndex: 1
-            }}>
-              🔍 查看详情
-            </span>
-          </button>
-          
-          {viewMode === 'marketplace' && asset.isListed && !isOwner && (
-            <button onClick={() => buyAsset(asset)} className="btn btn-success" style={{ flex: '1' }}>
-              💰 购买
-            </button>
-          )}
-          
-          {viewMode === 'myAssets' && isOwner && (
-            <>
-              {!asset.isListed ? (
-                <button 
-                  onClick={() => {
-                    setModalAssetId(asset.id)
-                    setModalType('price')
-                    setModalOpen(true)
-                  }}
-                  className="btn btn-primary"
-                  style={{ flex: '1' }}
-                >
-                  上架
-                </button>
-              ) : (
-                <button onClick={() => unlistAsset(asset.id)} className="btn btn-secondary" style={{ flex: '1' }}>
-                  下架
-                </button>
-              )}
-              
-              <button 
-                onClick={() => {
-                  setModalAssetId(asset.id)
-                  setModalType('transfer')
-                  setModalOpen(true)
-                }}
-                className="btn btn-secondary"
-                style={{ flex: '1' }}
-              >
-                转移
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      <AssetCard
+        key={asset.id}
+        asset={asset}
+        onOpenDetail={openDetail}
+        onBuy={() => buyAsset(asset)}
+        onList={() => {
+          setModalAssetId(asset.id)
+          setModalType('price')
+          setModalOpen(true)
+        }}
+        onUnlist={() => unlistAsset(asset.id)}
+        onTransfer={() => {
+          setModalAssetId(asset.id)
+          setModalType('transfer')
+          setModalOpen(true)
+        }}
+        viewMode={viewMode}
+        isOwner={isOwner}
+        formatAddress={formatAddress}
+        formatPrice={formatPrice}
+        getStatusText={getStatusText}
+      />
     )
   }
+  
   
   // 渲染订单卡片
   const renderOrderCard = (order: Order) => {
@@ -1166,72 +794,47 @@ function AppV3() {
   }
   
   return (
-    <div className="app">
-      <div className="container">
-        <header className="header">
-          <h1>🔐 ChainVault V3 - 资产交易平台</h1>
-          <p className="subtitle">一个完整的区块链资产注册和交易平台</p>
-          
-          {!account ? (
-            <button onClick={connectWallet} className="btn btn-primary">
-              连接钱包
-            </button>
-          ) : (
-            <div className="wallet-info">
-              <div className="account-info">
-                <div className="account-header">
-                  <span className="account-label">当前账户</span>
-                  {isBrand && <span className="stat-badge badge-brand">✨ 品牌方</span>}
-                  {isAdmin && <span className="stat-badge badge-admin">👑 管理员</span>}
-                  {userReputation && (
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px',
-                      marginLeft: '12px'
-                    }}>
-                      <span style={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '13px',
-                        fontWeight: '600',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                        Lv.{userReputation.level}
-                        {Array.from({ length: userReputation.stars }).map((_, i) => (
-                          <span key={i}>⭐</span>
-                        ))}
-                      </span>
-                      <span style={{
-                        fontSize: '12px',
-                        color: '#6b7280'
-                      }}>
-                        {userReputation.experiencePoints} EXP
-                      </span>
-                    </div>
-                  )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1920px] mx-auto">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">🔐</span>
                 </div>
-                <div className="account-address-display">
-                  <span className="account-address-full" title={account}>{account}</span>
-                  <button 
-                    className="copy-btn"
-                    onClick={() => {
-                      navigator.clipboard.writeText(account)
-                      alert('地址已复制到剪贴板！')
-                    }}
-                    title="复制地址"
-                  >
-                    📋
-                  </button>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">ChainVault</h1>
+                  <p className="text-xs text-gray-500">资产交易平台</p>
                 </div>
               </div>
+              
+              {!account ? (
+                <button onClick={connectWallet} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors">
+                  连接钱包
+                </button>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">当前账户</p>
+                    <p className="text-sm font-mono font-semibold text-gray-900">{formatAddress(account)}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(account)
+                      alert('地址已复制！')
+                    }}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    📋 复制
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </header>
+
+        <div className="max-w-7xl mx-auto px-6 py-8">
       
       {/* 全局交易状态提示 */}
       {txStatus && (
@@ -1273,51 +876,105 @@ function AppV3() {
       {account && (
         <>
           {/* 导航标签 */}
-          <nav className="filters-section">
-            <div className="filter-controls">
+          <nav className="mb-8">
+            <div className="flex gap-2 border-b border-gray-200">
               <button 
-                className={`filter-btn ${viewMode === 'marketplace' ? 'active' : ''}`}
+                className={`px-6 py-3 font-semibold transition-all relative ${
+                  viewMode === 'marketplace' 
+                    ? 'text-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
                 onClick={() => setViewMode('marketplace')}
               >
-                🛒 市场
+                市场
+                {viewMode === 'marketplace' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                )}
               </button>
               <button 
-                className={`filter-btn ${viewMode === 'myAssets' ? 'active' : ''}`}
+                className={`px-6 py-3 font-semibold transition-all relative ${
+                  viewMode === 'myAssets' 
+                    ? 'text-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
                 onClick={() => setViewMode('myAssets')}
               >
-                📦 我的资产
+                我的资产
+                {viewMode === 'myAssets' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                )}
               </button>
               <button 
-                className={`filter-btn ${viewMode === 'myOrders' ? 'active' : ''}`}
+                className={`px-6 py-3 font-semibold transition-all relative ${
+                  viewMode === 'myOrders' 
+                    ? 'text-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
                 onClick={() => setViewMode('myOrders')}
               >
-                📋 我的订单
+                我的订单
+                {viewMode === 'myOrders' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                )}
               </button>
               <button 
-                className={`filter-btn ${viewMode === 'register' ? 'active' : ''}`}
+                className={`px-6 py-3 font-semibold transition-all relative ${
+                  viewMode === 'register' 
+                    ? 'text-blue-600' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
                 onClick={() => setViewMode('register')}
               >
-                ➕ 注册资产
+                注册资产
+                {viewMode === 'register' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                )}
               </button>
             </div>
           </nav>
           
-          {/* 搜索栏 */}
+          {/* 搜索栏和统计 */}
           {viewMode !== 'register' && (
-            <div className="filters-section">
-              <div className="search-box">
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="搜索资产名称或序列号..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchAssets()}
-                />
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="relative flex-1 max-w-md">
+                  <input
+                    type="text"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="搜索资产名称或序列号..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && searchAssets()}
+                  />
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    🔍
+                  </div>
+                </div>
+                <button 
+                  onClick={searchAssets} 
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  搜索
+                </button>
               </div>
-              <button onClick={searchAssets} className="btn btn-primary">
-                搜索
-              </button>
+              
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 bg-gray-100 rounded-lg">
+                  <span className="text-sm text-gray-600">
+                    {viewMode === 'marketplace' && `${listedAssets.length} 件在售`}
+                    {viewMode === 'myAssets' && `${myAssets.length} 件资产`}
+                    {viewMode === 'myOrders' && `${myOrders.length} 个订单`}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => loadData()}
+                  disabled={loading}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                  title="刷新数据"
+                >
+                  <span className={loading ? 'inline-block animate-spin' : ''}>🔄</span>
+                </button>
+              </div>
             </div>
           )}
           
@@ -1394,10 +1051,10 @@ function AppV3() {
               
               {/* 市场 */}
               {viewMode === 'marketplace' && (
-                <div className="assets-list">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {listedAssets.length === 0 ? (
-                    <div className="empty-state">
-                      <p>暂无在售资产</p>
+                    <div className="col-span-full text-center py-16">
+                      <p className="text-gray-500 text-lg">暂无在售资产</p>
                     </div>
                   ) : (
                     listedAssets.map(renderAssetCard)
@@ -1407,10 +1064,10 @@ function AppV3() {
               
               {/* 我的资产 */}
               {viewMode === 'myAssets' && (
-                <div className="assets-list">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {myAssets.length === 0 ? (
-                    <div className="empty-state">
-                      <p>您还没有资产</p>
+                    <div className="col-span-full text-center py-16">
+                      <p className="text-gray-500 text-lg">您还没有资产</p>
                     </div>
                   ) : (
                     myAssets.map(renderAssetCard)
@@ -1472,36 +1129,19 @@ function AppV3() {
       />
       
       {/* 资产详情模态框 */}
-      <AssetDetailModal
-        asset={selectedAsset}
-        isOpen={detailModalOpen}
-        onClose={() => {
-          setDetailModalOpen(false)
-          setSelectedAsset(null)
-        }}
-        onBuy={(asset) => {
-          setDetailModalOpen(false)
-          buyAsset(asset)
-        }}
-        onList={(assetId) => {
-          setDetailModalOpen(false)
-          setModalAssetId(assetId)
-          setModalType('price')
-          setModalOpen(true)
-        }}
-        onUnlist={(assetId) => {
-          setDetailModalOpen(false)
-          unlistAsset(assetId)
-        }}
-        onTransfer={(assetId) => {
-          setDetailModalOpen(false)
-          setModalAssetId(assetId)
-          setModalType('transfer')
-          setModalOpen(true)
-        }}
-        isOwner={selectedAsset?.owner.toLowerCase() === account.toLowerCase()}
-        viewMode={viewMode}
-      />
+      {detailModalOpen && selectedAsset && (
+        <AssetDetailModalV2
+          asset={selectedAsset}
+          onClose={() => {
+            setDetailModalOpen(false)
+            setSelectedAsset(null)
+          }}
+          formatAddress={formatAddress}
+          formatPrice={formatPrice}
+          getStatusText={getStatusText}
+        />
+      )}
+        </div>
       </div>
     </div>
   )

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"log"
 
+	"strings"
+
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -15,7 +18,15 @@ var DB *gorm.DB
 func Connect(databaseURL string) error {
 	var err error
 	
-	DB, err = gorm.Open(mysql.Open(databaseURL), &gorm.Config{
+	var dialector gorm.Dialector
+	if strings.Contains(databaseURL, "@tcp") || strings.Contains(databaseURL, "@udp") || strings.Contains(databaseURL, "@unix") {
+		dialector = mysql.Open(databaseURL)
+	} else {
+		// Assume SQLite for file paths or simple strings
+		dialector = sqlite.Open(databaseURL)
+	}
+
+	DB, err = gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	

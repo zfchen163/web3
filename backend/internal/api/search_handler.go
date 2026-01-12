@@ -93,8 +93,16 @@ func GetListedAssets(c *gin.Context) {
 		return
 	}
 
+	// 获取在售资产总数
+	total, err := getAssetService().GetListedAssetsCount()
+	if err != nil {
+		// 如果获取总数失败，使用当前返回的数组长度
+		total = int64(len(assets))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data":   assets,
+		"total":  total,
 		"limit":  limit,
 		"offset": offset,
 	})

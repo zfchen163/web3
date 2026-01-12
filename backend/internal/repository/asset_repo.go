@@ -75,7 +75,7 @@ func (r *AssetRepository) FindByOwner(owner string, limit, offset int) ([]model.
 		return nil, err
 	}
 	var assets []model.Asset
-	err := r.db.Where("owner = ?", owner).
+	err := r.db.Where("LOWER(owner) = LOWER(?)", owner).
 		Order("is_listed DESC, updated_at DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -101,7 +101,7 @@ func (r *AssetRepository) CountByOwner(owner string) (int64, error) {
 		return 0, err
 	}
 	var count int64
-	err := r.db.Model(&model.Asset{}).Where("owner = ?", owner).Count(&count).Error
+	err := r.db.Model(&model.Asset{}).Where("LOWER(owner) = LOWER(?)", owner).Count(&count).Error
 	return count, err
 }
 
@@ -222,6 +222,16 @@ func (r *AssetRepository) FindListed(limit, offset int) ([]model.Asset, error) {
 		Offset(offset).
 		Find(&assets).Error
 	return assets, err
+}
+
+// CountListed 统计在售资产数量
+func (r *AssetRepository) CountListed() (int64, error) {
+	if err := r.ensureDB(); err != nil {
+		return 0, err
+	}
+	var count int64
+	err := r.db.Model(&model.Asset{}).Where("is_listed = ?", true).Count(&count).Error
+	return count, err
 }
 
 // FindByStatus 按验证状态查找资产
