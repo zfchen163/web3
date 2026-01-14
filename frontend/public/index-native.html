@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainVault - 区块链资产交易平台</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <!-- Ethers.js -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+    
+    <!-- 自定义样式 -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .swiper {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .swiper-slide {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .swiper-pagination-bullet-active {
+            background: #667eea !important;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 24px;
+            padding: 60px 40px;
+            margin-bottom: 40px;
+        }
+        
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .asset-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .asset-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.3);
+        }
+        
+        .asset-card img {
+            width: 100%;
+            height: 240px;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .asset-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-verified {
+            background: #10b981;
+            color: white;
+        }
+        
+        .badge-pending {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .badge-unverified {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: 2px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab-button {
+            padding: 12px 24px;
+            border: none;
+            background: transparent;
+            color: #6b7280;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 800px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-content.modal-small {
+            max-width: 500px;
+        }
+        
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: none;
+            animation: slideIn 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .toast.active {
+            display: block;
+        }
+        
+        .toast.toast-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        .toast.toast-error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .toast.toast-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        
+        .toast.toast-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        /* 响应式优化 */
+        @media (max-width: 768px) {
+            .modal-content {
+                padding: 24px;
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .toast {
+                right: 10px;
+                left: 10px;
+                top: 10px;
+                font-size: 14px;
+            }
+            
+            .tab-button {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+            
+            .asset-card {
+                margin-bottom: 16px;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .modal-content {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            h2 {
+                font-size: 20px;
+            }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 14px 20px 14px 48px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .search-box .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast 通知 -->
+    <div id="toast" class="toast"></div>
+    
+    <!-- 全局加载指示器 -->
+    <div id="globalLoader" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+            <p class="text-lg font-semibold text-gray-700" id="loaderText">处理中...</p>
+        </div>
+    </div>
+    
+    <!-- 顶部导航栏 -->
+    <nav class="glass-effect sticky top-0 z-50 shadow-lg">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-2xl">
+                        🔐
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold gradient-text">ChainVault</h1>
+                        <p class="text-xs text-gray-500">区块链资产交易平台</p>
+                    </div>
+                </div>
+                
+                <div id="walletSection">
+                    <button id="connectWalletBtn" class="btn-primary">
+                        连接钱包
+                    </button>
+                    <div id="accountInfo" class="hidden flex items-center gap-4">
+                        <div class="flex-1">
+                            <p class="text-xs text-gray-500 mb-1">当前账户</p>
+                            <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border-2 border-purple-200">
+                                <p id="accountAddress" class="text-sm font-mono font-bold text-gray-900 break-all"></p>
+                            </div>
+                        </div>
+                        <button id="copyAddressBtn" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-semibold transition-colors whitespace-nowrap">
+                            📋 复制
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 主容器 -->
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <!-- 未连接钱包时的欢迎页面 -->
+        <div id="welcomeSection" class="text-center py-20">
+            <div class="hero-section glass-effect">
+                <div class="float-animation mb-8">
+                    <div class="text-8xl">🔐</div>
+                </div>
+                <h2 class="text-5xl font-bold gradient-text mb-6">欢迎来到 ChainVault</h2>
+                <p class="text-xl text-gray-600 mb-8">一个完整的区块链资产注册和交易平台</p>
+                
+                <!-- Swiper 轮播图 - 特性展示 -->
+                <div class="swiper featureSwiper mb-12" style="max-width: 800px; margin: 0 auto; height: 300px;">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide">
+                            <div class="feature-card text-center">
+                                <div class="text-6xl mb-4">✅</div>
+                                <h3 class="text-2xl font-bold mb-3">品牌授权验证</h3>
+                                <p class="text-gray-600">支持品牌方注册和授权，确保资产真实性</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="feature-card text-center">
+                                <div class="text-6xl mb-4">🛒</div>
+                                <h3 class="text-2xl font-bold mb-3">资产交易市场</h3>
+                                <p class="text-gray-600">安全的链上交易，智能合约保障</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="feature-card text-center">
+                                <div class="text-6xl mb-4">📋</div>
+                                <h3 class="text-2xl font-bold mb-3">订单管理</h3>
+                                <p class="text-gray-600">完整的订单流程和退货机制</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="feature-card text-center">
+                                <div class="text-6xl mb-4">🔍</div>
+                                <h3 class="text-2xl font-bold mb-3">生命周期追踪</h3>
+                                <p class="text-gray-600">完整的资产历史记录和所有权追踪</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="swiper-pagination"></div>
+                </div>
+                
+                <button onclick="document.getElementById('connectWalletBtn').click()" class="btn-primary text-lg px-8 py-4">
+                    🚀 立即开始
+                </button>
+            </div>
+        </div>
+        
+        <!-- 已连接钱包时的主界面 -->
+        <div id="mainSection" class="hidden">
+            <!-- 标签导航 -->
+            <div class="glass-effect rounded-2xl p-2 mb-8">
+                <div class="flex gap-2">
+                    <button class="tab-button active" data-tab="marketplace">🛒 市场</button>
+                    <button class="tab-button" data-tab="myAssets">📦 我的资产</button>
+                    <button class="tab-button" data-tab="myOrders">📋 我的订单</button>
+                    <button class="tab-button" data-tab="register">➕ 注册资产</button>
+                </div>
+            </div>
+            
+            <!-- 搜索和筛选栏 -->
+            <div id="searchBar" class="glass-effect rounded-2xl p-6 mb-8">
+                <div class="flex items-center gap-4">
+                    <div class="search-box flex-1">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="searchInput" placeholder="搜索资产名称或序列号...">
+                    </div>
+                    <button id="searchBtn" class="btn-primary">搜索</button>
+                    <button id="refreshBtn" class="btn-secondary">🔄 刷新</button>
+                </div>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div id="statsSection" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="stats-card">
+                    <div class="text-4xl font-bold mb-2" id="totalAssets">0</div>
+                    <div class="text-sm opacity-90">总资产数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="text-4xl font-bold mb-2" id="listedAssets">0</div>
+                    <div class="text-sm opacity-90">在售资产</div>
+                </div>
+                <div class="stats-card">
+                    <div class="text-4xl font-bold mb-2" id="totalOrders">0</div>
+                    <div class="text-sm opacity-90">总订单数</div>
+                </div>
+            </div>
+            
+            <!-- 内容区域 -->
+            <div class="glass-effect rounded-2xl p-8">
+                <!-- 市场页面 -->
+                <div id="marketplaceContent" class="tab-content">
+                    <h2 class="text-3xl font-bold mb-6 gradient-text">🛒 在售资产</h2>
+                    <div id="marketplaceAssets" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 资产卡片将动态插入这里 -->
+                    </div>
+                </div>
+                
+                <!-- 我的资产页面 -->
+                <div id="myAssetsContent" class="tab-content hidden">
+                    <h2 class="text-3xl font-bold mb-6 gradient-text">📦 我的资产</h2>
+                    <div id="myAssetsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- 资产卡片将动态插入这里 -->
+                    </div>
+                </div>
+                
+                <!-- 我的订单页面 -->
+                <div id="myOrdersContent" class="tab-content hidden">
+                    <h2 class="text-3xl font-bold mb-6 gradient-text">📋 我的订单</h2>
+                    <div id="myOrdersList" class="space-y-4">
+                        <!-- 订单卡片将动态插入这里 -->
+                    </div>
+                </div>
+                
+                <!-- 注册资产页面 -->
+                <div id="registerContent" class="tab-content hidden">
+                    <h2 class="text-3xl font-bold mb-6 gradient-text">➕ 注册新资产</h2>
+                    
+                    <!-- 一键填写按钮 -->
+                    <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6 mb-8 text-white">
+                        <div class="flex justify-between items-center flex-wrap gap-4">
+                            <div>
+                                <h3 class="text-xl font-bold mb-2">🎲 快速测试</h3>
+                                <p class="text-sm opacity-90">点击按钮自动填充所有表单字段（随机生成测试数据）</p>
+                            </div>
+                            <button type="button" id="autoFillBtn" class="bg-white text-purple-600 px-6 py-3 rounded-lg font-bold hover:shadow-lg transition-all">
+                                ✨ 一键填写所有字段
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <form id="registerForm" class="max-w-4xl mx-auto space-y-8">
+                        
+                        <!-- 基础信息 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-gray-800">📝 基础信息</h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">资产名称 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="assetName" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: 耐克 Air Jordan 1 High OG 红黑配色" required>
+                                    <p class="text-xs text-gray-500 mt-1">请输入完整的商品名称，建议包含品牌、型号、颜色等信息</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">序列号 <span class="text-red-500">*</span></label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="serialNumber" class="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: NK-SHOES-20240107-1234" required>
+                                        <button type="button" id="generateSerialBtn" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-all">
+                                            ⚡ 自动生成
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">💡 点击"自动生成"按钮可根据品牌和分类自动创建唯一序列号</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">商品描述</label>
+                                    <textarea id="description" rows="4" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="详细描述商品的特点、状态、配件等..."></textarea>
+                                    <p class="text-xs text-gray-500 mt-1">详细描述有助于买家了解商品，提高成交率</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分类信息 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-gray-800">🏷️ 分类信息</h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">商品分类 <span class="text-red-500">*</span></label>
+                                    <select id="category" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" required>
+                                        <option value="">请选择分类</option>
+                                        <option value="shoes">👟 鞋类</option>
+                                        <option value="clothing">👕 服装</option>
+                                        <option value="accessories">👜 配饰</option>
+                                        <option value="bags">🎒 箱包</option>
+                                        <option value="watches">⌚ 手表</option>
+                                        <option value="jewelry">💎 珠宝</option>
+                                        <option value="electronics">📱 电子产品</option>
+                                        <option value="collectibles">🎨 收藏品</option>
+                                        <option value="sports">⚽ 运动器材</option>
+                                        <option value="other">📦 其他</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">品牌 <span class="text-red-500">*</span></label>
+                                        <input type="text" id="brand" list="brandList" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="输入或选择品牌" required>
+                                        <datalist id="brandList">
+                                            <option value="Nike">
+                                            <option value="Adidas">
+                                            <option value="Gucci">
+                                            <option value="Louis Vuitton">
+                                            <option value="Chanel">
+                                            <option value="Hermès">
+                                            <option value="Rolex">
+                                            <option value="Apple">
+                                        </datalist>
+                                        <p class="text-xs text-gray-500 mt-1">💡 可以从列表中选择，也可以直接输入新品牌</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">型号/款式</label>
+                                        <input type="text" id="model" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: Air Jordan 1 High OG">
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">尺码/规格</label>
+                                        <input type="text" id="size" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: 42 或 M">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">颜色</label>
+                                        <input type="text" id="color" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: 红黑配色">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">商品状态 <span class="text-red-500">*</span></label>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition-all">
+                                            <input type="radio" name="condition" value="new" checked class="mr-3">
+                                            <div>
+                                                <div class="font-semibold">🆕 全新</div>
+                                                <div class="text-xs text-gray-500">未使用过，带原包装</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition-all">
+                                            <input type="radio" name="condition" value="used" class="mr-3">
+                                            <div>
+                                                <div class="font-semibold">♻️ 二手</div>
+                                                <div class="text-xs text-gray-500">使用过，有使用痕迹</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition-all">
+                                            <input type="radio" name="condition" value="refurbished" class="mr-3">
+                                            <div>
+                                                <div class="font-semibold">🔧 翻新</div>
+                                                <div class="text-xs text-gray-500">经过翻新或维修</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">生产日期</label>
+                                        <input type="date" id="productionDate" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-semibold mb-2">生产地</label>
+                                        <input type="text" id="productionLocation" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: 广东省-广州市-天河区">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 商品照片 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-gray-800">📷 商品照片 <span class="text-red-500">*</span></h3>
+                            <p class="text-sm text-gray-600 mb-4">建议上传商品的多角度照片，包括正面、侧面、底部、细节等</p>
+                            
+                            <div>
+                                <input type="file" id="assetImages" accept="image/*" multiple class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <p class="text-xs text-gray-500 mt-1">支持上传多张图片（最多 5 张）</p>
+                            </div>
+                            
+                            <div id="imagePreview" class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4"></div>
+                        </div>
+                        
+                        <!-- 物理标识 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-gray-800">🏷️ 物理标识（可选）</h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">NFC 标签 ID</label>
+                                    <input type="text" id="nfcTagId" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: NFC-001234">
+                                    <p class="text-xs text-gray-500 mt-1">如果商品有 NFC 标签，请输入标签 ID（可用于防伪验证）</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">品牌证书/鉴定报告</label>
+                                    <input type="url" id="certificateUrl" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="https://...">
+                                    <p class="text-xs text-gray-500 mt-1">品牌官方证书或第三方鉴定报告的链接</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 上架设置 -->
+                        <div class="bg-white rounded-2xl p-6 shadow-lg">
+                            <h3 class="text-xl font-bold mb-4 text-gray-800">💰 上架设置（可选）</h3>
+                            
+                            <div class="space-y-4">
+                                <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition-all">
+                                    <input type="checkbox" id="listImmediately" class="mr-3 w-5 h-5">
+                                    <div>
+                                        <div class="font-semibold">注册后立即上架销售</div>
+                                        <div class="text-xs text-gray-500">勾选后，资产注册成功后会自动上架到市场</div>
+                                    </div>
+                                </label>
+                                
+                                <div id="priceSection" class="hidden">
+                                    <label class="block text-sm font-semibold mb-2">售价 (ETH) <span class="text-red-500">*</span></label>
+                                    <input type="number" id="price" step="0.001" min="0" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="0.5">
+                                    <p class="text-xs text-gray-500 mt-1">设置合理的价格有助于快速成交</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 错误提示 -->
+                        <div id="formErrors" class="hidden bg-red-50 border-2 border-red-200 rounded-2xl p-6">
+                            <h4 class="text-red-800 font-bold mb-2">⚠️ 请完善以下信息：</h4>
+                            <ul id="errorList" class="list-disc list-inside text-red-600 space-y-1"></ul>
+                        </div>
+                        
+                        <!-- 提交按钮 -->
+                        <div class="flex gap-4">
+                            <button type="button" id="resetFormBtn" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-4 rounded-lg font-bold text-lg transition-all">
+                                🔄 重置表单
+                            </button>
+                            <button type="submit" id="submitBtn" class="flex-1 btn-primary text-lg py-4">
+                                ✅ 注册资产
+                            </button>
+                        </div>
+                        
+                        <!-- 表单说明 -->
+                        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6">
+                            <h4 class="text-blue-800 font-bold mb-3">💡 填写提示：</h4>
+                            <ul class="text-sm text-blue-700 space-y-2">
+                                <li>• <span class="text-red-500">*</span> 标记的为必填项</li>
+                                <li>• 序列号必须全局唯一，建议使用商品标签上的编号</li>
+                                <li>• 至少上传一张商品照片，建议上传多角度照片</li>
+                                <li>• 品牌方注册的资产会自动验证，用户注册需要等待验证</li>
+                                <li>• 立即上架需要设置价格，也可以稍后再上架</li>
+                            </ul>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 模态框 - 资产详情 -->
+    <div id="assetDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold gradient-text">资产详情</h3>
+                <button onclick="closeModal('assetDetailModal')" class="text-3xl text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <div id="assetDetailContent">
+                <!-- 详情内容将动态插入 -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- 模态框 - 上架资产 -->
+    <div id="listAssetModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold gradient-text">💰 上架资产</h3>
+                <button onclick="closeModal('listAssetModal')" class="text-3xl text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <form id="listAssetForm">
+                <input type="hidden" id="listAssetId">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2">设置价格（ETH）</label>
+                    <input type="number" id="listAssetPrice" step="0.01" min="0" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="例如: 1.5" required>
+                </div>
+                <button type="submit" class="btn-primary w-full">确认上架</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 模态框 - 转移资产 -->
+    <div id="transferAssetModal" class="modal">
+        <div class="modal-content modal-small">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold gradient-text">🔄 转移资产</h3>
+                <button onclick="closeModal('transferAssetModal')" class="text-3xl text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <form id="transferAssetForm">
+                <input type="hidden" id="transferAssetId">
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold mb-2">接收方地址</label>
+                    <input type="text" id="transferToAddress" class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="0x..." required>
+                </div>
+                <button type="submit" class="btn-primary w-full">确认转移</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script src="./app.js"></script>
+</body>
+</html>

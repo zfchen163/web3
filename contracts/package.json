@@ -1,0 +1,16 @@
+{
+  "name": "chain-vault-contracts",
+  "version": "1.0.0",
+  "description": "ChainVault Solidity Contracts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "node": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.ts --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "typescript": "^5.3.0"
+  }
+}
+

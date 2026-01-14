@@ -1,0 +1,31 @@
+========================================
+📊 在你的终端中运行以下命令
+========================================
+
+方法 1: 使用脚本（推荐）
+-----------------------
+cd /Users/h/practice/web3/chain-vault
+chmod +x RUN_MIGRATION.sh
+./RUN_MIGRATION.sh
+
+
+方法 2: 直接运行 Docker 命令
+---------------------------
+docker exec -i chainvault-db mysql -u root -proot chainvault < /Users/h/practice/web3/chain-vault/backend/migrations/001_complete_schema.sql
+
+
+验证结果
+--------
+docker exec chainvault-db mysql -u root -proot chainvault -e "SHOW TABLES;"
+docker exec chainvault-db mysql -u root -proot chainvault -e "DESCRIBE assets;"
+
+
+如果出错
+--------
+1. 检查容器: docker ps | grep mysql
+2. 查看日志: docker logs chainvault-db
+3. 重启容器: docker restart chainvault-db
+4. 再次执行迁移
+
+========================================
+
